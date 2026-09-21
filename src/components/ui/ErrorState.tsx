@@ -1,0 +1,1 @@
+import {useTranslation} from 'react-i18next'; export function ErrorState({onRetry}:{onRetry?:()=>void}){const {t}=useTranslation();return <div className="state-card"><h3>{t('common.error')}</h3>{onRetry&&<button className="secondary" onClick={onRetry}>{t('common.retry')}</button>}</div>}

@@ -1,0 +1,8 @@
+import {useQuery} from '@tanstack/react-query';
+import {useTranslation} from 'react-i18next';
+import {bookingsApi} from '../dashboard/api';
+import {BookingChart} from '../../components/ui/BookingChart';
+import {Loading} from '../../components/ui/Loading';
+import {ErrorState} from '../../components/ui/ErrorState';
+
+export function AnalyticsPage(){const {t}=useTranslation();const q=useQuery({queryKey:['admin-analytics-bookings'],queryFn:()=>bookingsApi.list({page:1,limit:200}),staleTime:30_000});if(q.isLoading)return <Loading/>;if(q.isError)return <ErrorState onRetry={()=>q.refetch()}/>;return <><div className="page-head"><div><p className="eyebrow">{t('nav.analytics').toUpperCase()}</p><h1>{t('nav.analytics')}</h1><p className="muted">{t('management.analyticsDesc')}</p></div></div><div className="panel chart-panel"><div className="panel-head"><div><h3>{t('bookingChart.title')}</h3><span>{t('bookingChart.analyticsSubtitle')}</span></div></div><BookingChart bookings={q.data?.data||[]} days={30}/></div><div className="stats analytics-stats"><div className="stat"><span>{t('bookingChart.loadedBookings')}</span><strong>{q.data?.data.length||0}</strong><small>{t('bookingChart.loadedBookingsHint')}</small></div><div className="stat"><span>{t('bookingChart.confirmed')}</span><strong>{(q.data?.data||[]).filter(b=>b.status==='CONFIRMED'||b.status==='CHECKED_IN').length}</strong></div><div className="stat"><span>{t('bookingChart.pending')}</span><strong>{(q.data?.data||[]).filter(b=>b.status==='PENDING').length}</strong></div><div className="stat"><span>{t('bookingChart.cancelled')}</span><strong>{(q.data?.data||[]).filter(b=>['CANCELLED','EXPIRED','NO_SHOW'].includes(b.status)).length}</strong></div></div></>}

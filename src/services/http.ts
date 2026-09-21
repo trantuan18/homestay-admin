@@ -1,0 +1,8 @@
+import axios from 'axios';
+const baseURL=import.meta.env.VITE_API_URL||'http://localhost:3000';
+export const http=axios.create({baseURL,timeout:15000,headers:{'Content-Type':'application/json'}});
+http.interceptors.request.use(config=>{const token=localStorage.getItem('access_token'); const lang=localStorage.getItem('language')||((navigator.language||'vi').toLowerCase().startsWith('en')?'en':'vi'); if(token) config.headers.Authorization=`Bearer ${token}`; config.headers['Accept-Language']=lang; return config;});
+let refreshing=false; let queue:Array<(token:string)=>void>=[];
+const flush=(token:string)=>{queue.forEach(resolve=>resolve(token));queue=[]};
+http.interceptors.response.use(r=>r,async error=>{const original=error.config; if(error.response?.status!==401||original?._retry||!localStorage.getItem('refresh_token')) throw error; original._retry=true; if(refreshing)return new Promise(resolve=>queue.push(token=>{original.headers.Authorization=`Bearer ${token}`;resolve(http(original))})); refreshing=true; try{const {data}=await axios.post(`${baseURL}/api/auth/refresh`,{refresh_token:localStorage.getItem('refresh_token')}); localStorage.setItem('access_token',data.session.access_token); if(data.session.refresh_token)localStorage.setItem('refresh_token',data.session.refresh_token); flush(data.session.access_token); original.headers.Authorization=`Bearer ${data.session.access_token}`; return http(original)}catch(e){localStorage.removeItem('access_token');localStorage.removeItem('refresh_token');queue=[];throw e}finally{refreshing=false}});
+export const apiError=(error:unknown)=>{if(axios.isAxiosError(error)) return error.response?.data?.message||error.response?.data?.error||error.message; return 'Unknown error'};
