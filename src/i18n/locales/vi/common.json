@@ -56,7 +56,11 @@
   },
   "dashboard": {
     "eyebrow": "TỔNG QUAN",
-    "greeting": "Chào buổi sáng, {{name}}.",
+    "greeting": {
+      "morning": "Chào buổi sáng, {{name}}.",
+      "afternoon": "Chào buổi chiều, {{name}}.",
+      "evening": "Chào buổi tối, {{name}}."
+    },
     "description": "Đây là tình hình hoạt động của các cơ sở lưu trú hôm nay.",
     "createBooking": "Tạo booking",
     "revenue": "Doanh thu tháng này",

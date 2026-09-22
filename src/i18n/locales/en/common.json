@@ -56,7 +56,11 @@
   },
   "dashboard": {
     "eyebrow": "OVERVIEW",
-    "greeting": "Good morning, {{name}}.",
+    "greeting": {
+      "morning": "Good morning, {{name}}.",
+      "afternoon": "Good afternoon, {{name}}.",
+      "evening": "Good evening, {{name}}."
+    },
     "description": "Here’s what’s happening across your properties today.",
     "createBooking": "Create booking",
     "revenue": "Revenue this month",
