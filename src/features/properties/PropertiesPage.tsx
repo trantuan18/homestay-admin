@@ -12,6 +12,7 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Modal } from "../../components/ui/Modal";
 
 const emptyForm: PropertyPayload = {
+  owner_id: localStorage.getItem("user_id") || "",
   name: "",
   slug: "",
   description: "",
@@ -35,7 +36,7 @@ export function PropertiesPage() {
   const [open, setOpen] = useState(false);
   const q = useQuery({
     queryKey: ["admin-properties"],
-    queryFn: () => propertiesCrudApi.list({ page: 1, limit: 100 }),
+    queryFn: () => propertiesCrudApi.list({ offset: 0, limit: 100 }),
     staleTime: 30_000,
   });
   const mutation = useMutation({
@@ -199,6 +200,7 @@ function PropertyForm({
       setForm(
         property
           ? {
+              owner_id: property.owner_id,
               name: property.name,
               slug: property.slug,
               description: property.description || "",

@@ -7,7 +7,7 @@ export function UsersPage() {
   const { t } = useTranslation();
   const q = useQuery({
     queryKey: ["admin-users"],
-    queryFn: () => usersApi.list({ page: 1, limit: 50 }),
+    queryFn: () => usersApi.list({ offset: 0, limit: 50 }),
   });
   if (q.isLoading) return <Loading />;
   if (q.isError)
@@ -35,7 +35,7 @@ export function UsersPage() {
                 data.map((u) => (
                   <tr key={u.id}>
                     <td>{u.full_name || "—"}</td>
-                    <td>{u.email}</td>
+                    <td>{u.email || "—"}</td>
                     <td>
                       <span className="role-chip">{u.role}</span>
                     </td>

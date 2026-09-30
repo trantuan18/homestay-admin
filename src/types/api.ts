@@ -45,6 +45,11 @@ export interface Property {
   cancellation_deadline_hours: number;
   cancellation_fee_percent: number;
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  latitude?: number | null;
+  longitude?: number | null;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  profiles?: Profile | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -58,6 +63,20 @@ export interface Room {
   base_hourly_price: number;
   base_daily_price: number;
   status: "AVAILABLE" | "MAINTENANCE" | "INACTIVE";
+  created_at?: string;
+  updated_at?: string;
+  properties?: {
+    id: string;
+    name: string;
+    city?: string | null;
+    status: string;
+  } | null;
+  room_images?: Array<{
+    id: string;
+    image_url: string;
+    public_id?: string | null;
+    sort_order?: number;
+  }>;
 }
 export interface Booking {
   id: string;
@@ -70,6 +89,7 @@ export interface Booking {
   guest_count: number;
   guest_name?: string | null;
   guest_phone?: string | null;
+  guest_email?: string | null;
   subtotal: number;
   discount: number;
   tax: number;
@@ -138,4 +158,27 @@ export interface Paginated<T> {
   page: number;
   limit: number;
   total: number;
+  offset?: number;
+}
+export interface AdminAnalytics {
+  period: { from: string; to: string };
+  summary: Record<string, number>;
+  daily: Array<{
+    date: string;
+    bookings: number;
+    confirmed: number;
+    cancelled: number;
+    checked_in: number;
+    checked_out: number;
+    revenue: number;
+  }>;
+  property_performance: Array<{
+    property_id: string;
+    name: string;
+    city?: string | null;
+    status: string;
+    bookings: number;
+    revenue: number;
+  }>;
+  room_performance: Array<Record<string, string | number>>;
 }

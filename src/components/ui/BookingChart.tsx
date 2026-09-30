@@ -14,13 +14,42 @@ import type { Booking } from "../../types/api";
 
 export function BookingChart({
   bookings,
+  daily,
   days = 14,
 }: {
   bookings: Booking[];
+  daily?: Array<{
+    date: string;
+    confirmed: number;
+    bookings: number;
+    cancelled: number;
+    checked_in: number;
+    checked_out: number;
+  }>;
   days?: number;
 }) {
   const { t } = useTranslation();
   const data = useMemo(() => {
+    if (daily?.length) {
+      return daily.map((row) => ({
+        key: row.date,
+        label: new Date(row.date).toLocaleDateString(undefined, {
+          day: "2-digit",
+          month: "2-digit",
+        }),
+        confirmed: row.confirmed + row.checked_in,
+        pending: Math.max(
+          row.bookings -
+            row.confirmed -
+            row.cancelled -
+            row.checked_in -
+            row.checked_out,
+          0,
+        ),
+        completed: row.checked_out,
+        cancelled: row.cancelled,
+      }));
+    }
     const now = new Date();
     const rows = Array.from({ length: days }, (_, i) => {
       const d = new Date(now);
@@ -55,7 +84,7 @@ export function BookingChart({
         row.cancelled++;
     });
     return rows;
-  }, [bookings, days]);
+  }, [bookings, daily, days]);
   return (
     <div className="booking-chart">
       <ResponsiveContainer width="100%" height={300}>

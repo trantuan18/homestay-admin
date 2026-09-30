@@ -21,7 +21,7 @@ export function DashboardPage() {
   });
   const bookings = useQuery({
     queryKey: ["admin-booking-chart"],
-    queryFn: () => bookingsApi.list({ page: 1, limit: 200 }),
+    queryFn: () => bookingsApi.list({ offset: 0, limit: 200 }),
     staleTime: 30_000,
   });
   if (q.isLoading) return <Loading />;

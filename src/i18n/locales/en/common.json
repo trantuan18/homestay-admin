@@ -140,10 +140,19 @@
     "confirmDelete": "Delete “{{name}}”? This performs a soft delete.",
     "required": "Please enter name, slug, city and country."
   },
+  "rooms": {
+    "createTitle": "Create room",
+    "formDesc": "Choose a property and configure the room details.",
+    "saved": "Room created.",
+    "saveError": "Unable to create room.",
+    "required": "Please choose a property and enter the room name and slug."
+  },
   "form": {
     "name": "Name",
     "slug": "Slug",
     "description": "Description",
+    "property": "Property",
+    "selectProperty": "Select a property",
     "address": "Address",
     "city": "City",
     "country": "Country",
@@ -153,7 +162,10 @@
     "minimumBooking": "Minimum duration (min)",
     "maximumBooking": "Maximum duration (min)",
     "cancelDeadline": "Cancellation deadline (hours)",
-    "cancelFee": "Cancellation fee (%)"
+    "cancelFee": "Cancellation fee (%)",
+    "capacity": "Capacity",
+    "hourlyPrice": "Hourly price",
+    "dailyPrice": "Daily price"
   },
   "bookingChart": {
     "title": "Booking activity by day",

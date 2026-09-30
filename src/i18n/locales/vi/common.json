@@ -140,10 +140,19 @@
     "confirmDelete": "Xóa cơ sở “{{name}}”? Thao tác này sẽ soft-delete cơ sở.",
     "required": "Vui lòng nhập tên, slug, thành phố và quốc gia."
   },
+  "rooms": {
+    "createTitle": "Tạo phòng mới",
+    "formDesc": "Chọn cơ sở và cấu hình thông tin phòng.",
+    "saved": "Đã tạo phòng.",
+    "saveError": "Không thể tạo phòng.",
+    "required": "Vui lòng chọn cơ sở và nhập tên, slug của phòng."
+  },
   "form": {
     "name": "Tên",
     "slug": "Slug",
     "description": "Mô tả",
+    "property": "Cơ sở",
+    "selectProperty": "Chọn cơ sở",
     "address": "Địa chỉ",
     "city": "Thành phố",
     "country": "Quốc gia",
@@ -153,7 +162,10 @@
     "minimumBooking": "Thời lượng tối thiểu (phút)",
     "maximumBooking": "Thời lượng tối đa (phút)",
     "cancelDeadline": "Hạn hủy (giờ)",
-    "cancelFee": "Phí hủy (%)"
+    "cancelFee": "Phí hủy (%)",
+    "capacity": "Sức chứa",
+    "hourlyPrice": "Giá theo giờ",
+    "dailyPrice": "Giá theo ngày"
   },
   "bookingChart": {
     "title": "Theo dõi booking theo ngày",

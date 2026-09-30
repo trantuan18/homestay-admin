@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { bookingsApi } from "../dashboard/api";
+import { analyticsApi } from "../dashboard/api";
 import { BookingChart } from "../../components/ui/BookingChart";
 import { Loading } from "../../components/ui/Loading";
 import { ErrorState } from "../../components/ui/ErrorState";
@@ -8,13 +8,15 @@ import { ErrorState } from "../../components/ui/ErrorState";
 export function AnalyticsPage() {
   const { t } = useTranslation();
   const q = useQuery({
-    queryKey: ["admin-analytics-bookings"],
-    queryFn: () => bookingsApi.list({ page: 1, limit: 200 }),
+    queryKey: ["admin-analytics"],
+    queryFn: () => analyticsApi.get(),
     staleTime: 30_000,
   });
   if (q.isLoading) return <Loading />;
   if (q.isError)
     return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
+  const summary = q.data?.summary || {};
+  const properties = q.data?.property_performance || [];
   return (
     <>
       <div className="page-head">
@@ -31,39 +33,68 @@ export function AnalyticsPage() {
             <span>{t("bookingChart.analyticsSubtitle")}</span>
           </div>
         </div>
-        <BookingChart bookings={q.data?.data || []} days={30} />
+        <BookingChart bookings={[]} daily={q.data?.daily} days={30} />
       </div>
       <div className="stats analytics-stats">
         <div className="stat">
           <span>{t("bookingChart.loadedBookings")}</span>
-          <strong>{q.data?.data.length || 0}</strong>
+          <strong>{summary.total_bookings || 0}</strong>
           <small>{t("bookingChart.loadedBookingsHint")}</small>
         </div>
         <div className="stat">
           <span>{t("bookingChart.confirmed")}</span>
-          <strong>
-            {
-              (q.data?.data || []).filter(
-                (b) => b.status === "CONFIRMED" || b.status === "CHECKED_IN",
-              ).length
-            }
-          </strong>
+          <strong>{summary.confirmed_bookings || 0}</strong>
         </div>
         <div className="stat">
           <span>{t("bookingChart.pending")}</span>
-          <strong>
-            {(q.data?.data || []).filter((b) => b.status === "PENDING").length}
-          </strong>
+          <strong>{summary.confirmed_bookings || 0}</strong>
         </div>
         <div className="stat">
           <span>{t("bookingChart.cancelled")}</span>
-          <strong>
-            {
-              (q.data?.data || []).filter((b) =>
-                ["CANCELLED", "EXPIRED", "NO_SHOW"].includes(b.status),
-              ).length
-            }
-          </strong>
+          <strong>{summary.cancelled_bookings || 0}</strong>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h3>{t("nav.properties")}</h3>
+            <span>{t("management.analyticsDesc")}</span>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t("table.name")}</th>
+                <th>{t("table.city")}</th>
+                <th>{t("table.booking")}</th>
+                <th>{t("table.total")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {properties.length ? (
+                properties.map((property) => (
+                  <tr key={String(property.property_id)}>
+                    <td>{String(property.name || "—")}</td>
+                    <td>{String(property.city || "—")}</td>
+                    <td>{String(property.bookings || 0)}</td>
+                    <td>
+                      {new Intl.NumberFormat("vi-VN").format(
+                        Number(property.revenue || 0),
+                      )}{" "}
+                      ₫
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="empty-cell">
+                    {t("common.empty")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </>

@@ -8,7 +8,7 @@ export function PaymentsPage() {
   const { t } = useTranslation();
   const q = useQuery({
     queryKey: ["admin-payments-bookings"],
-    queryFn: () => bookingsApi.list({ page: 1, limit: 50 }),
+    queryFn: () => bookingsApi.list({ offset: 0, limit: 50 }),
   });
   if (q.isLoading) return <Loading />;
   if (q.isError)

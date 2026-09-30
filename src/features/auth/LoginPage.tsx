@@ -28,6 +28,7 @@ export function LoginPage() {
       if (data.session?.refresh_token)
         localStorage.setItem("refresh_token", data.session.refresh_token);
       const me = await getMe();
+      localStorage.setItem("user_id", me.user.id);
       if (!["ADMIN", "SUPER_ADMIN"].includes(me.role)) {
         localStorage.clear();
         toast.error(t("auth.invalidRole"));
