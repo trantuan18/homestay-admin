@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Plus } from "lucide-react";
+import { Eye, Pencil, Plus } from "lucide-react";
 import { roomsApi, propertiesApi } from "../dashboard/api";
 import { roomsCrudApi, type RoomPayload } from "./api";
 import type { Room } from "../../types/api";
@@ -26,6 +26,11 @@ export function RoomsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [detailRoom, setDetailRoom] = useState<Room | null>(null);
+  const [detailTab, setDetailTab] = useState<"images" | "pricing" | "blocked">(
+    "images",
+  );
   const [propertyId, setPropertyId] = useState("");
   const [form, setForm] = useState<RoomPayload>(emptyForm);
   const q = useQuery({
@@ -37,25 +42,53 @@ export function RoomsPage() {
     queryFn: () => propertiesApi.list({ offset: 0, limit: 100 }),
     enabled: open,
   });
+  const detail = useQuery({
+    queryKey: ["admin-room-detail", detailRoom?.id],
+    queryFn: () => roomsCrudApi.detail(detailRoom!.id),
+    enabled: Boolean(detailRoom),
+  });
   const create = useMutation({
-    mutationFn: () => roomsCrudApi.create(propertyId, form),
+    mutationFn: () =>
+      editingRoom
+        ? roomsCrudApi.update(editingRoom.id, form)
+        : roomsCrudApi.create(propertyId, form),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-rooms"] });
       setOpen(false);
       setPropertyId("");
+      setEditingRoom(null);
       setForm(emptyForm);
       toast.success(t("rooms.saved"));
     },
     onError: () => toast.error(t("rooms.saveError")),
   });
   const startCreate = () => {
+    setEditingRoom(null);
     setPropertyId("");
     setForm(emptyForm);
     setOpen(true);
   };
+  const startEdit = (room: Room) => {
+    setEditingRoom(room);
+    setPropertyId(room.property_id);
+    setForm({
+      name: room.name,
+      slug: room.slug,
+      description: room.description || "",
+      capacity: room.capacity,
+      base_hourly_price: room.base_hourly_price,
+      base_daily_price: room.base_daily_price,
+      status: room.status,
+    });
+    setOpen(true);
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!propertyId || !form.name.trim() || !form.slug.trim()) {
+    if (
+      (!propertyId && !editingRoom) ||
+      !form.name.trim() ||
+      !form.slug.trim()
+    ) {
       toast.error(t("rooms.required"));
       return;
     }
@@ -112,7 +145,22 @@ export function RoomsPage() {
                       <StatusBadge status={r.status} />
                     </td>
                     <td>
-                      <button className="ghost">{t("common.edit")}</button>
+                      <div className="row-actions">
+                        <button
+                          className="ghost"
+                          onClick={() => {
+                            setDetailRoom(r);
+                            setDetailTab("images");
+                          }}
+                        >
+                          <Eye size={15} />
+                          {t("common.viewAll")}
+                        </button>
+                        <button className="ghost" onClick={() => startEdit(r)}>
+                          <Pencil size={15} />
+                          {t("common.edit")}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -129,12 +177,21 @@ export function RoomsPage() {
       </div>
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
-        title={t("rooms.createTitle")}
+        onClose={() => {
+          setOpen(false);
+          setEditingRoom(null);
+        }}
+        title={editingRoom ? t("rooms.editTitle") : t("rooms.createTitle")}
         description={t("rooms.formDesc")}
         footer={
           <>
-            <button className="ghost" onClick={() => setOpen(false)}>
+            <button
+              className="ghost"
+              onClick={() => {
+                setOpen(false);
+                setEditingRoom(null);
+              }}
+            >
               {t("common.cancel")}
             </button>
             <button
@@ -160,6 +217,7 @@ export function RoomsPage() {
               <span>{t("form.property")}</span>
               <select
                 value={propertyId}
+                disabled={Boolean(editingRoom)}
                 onChange={(e) => setPropertyId(e.target.value)}
               >
                 <option value="">{t("form.selectProperty")}</option>
@@ -246,6 +304,132 @@ export function RoomsPage() {
           </form>
         )}
       </Modal>
+      <Modal
+        open={Boolean(detailRoom)}
+        onClose={() => setDetailRoom(null)}
+        title={detailRoom?.name || t("rooms.detailTitle")}
+        description={detailRoom?.properties?.name || detailRoom?.slug}
+      >
+        {detail.isLoading ? (
+          <Loading />
+        ) : detail.isError ? (
+          <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
+        ) : (
+          <>
+            <div
+              className="toolbar"
+              role="tablist"
+              aria-label={t("rooms.detailTitle")}
+            >
+              {(["images", "pricing", "blocked"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  className={detailTab === tab ? "primary" : "ghost"}
+                  role="tab"
+                  aria-selected={detailTab === tab}
+                  onClick={() => setDetailTab(tab)}
+                >
+                  {t(`rooms.tabs.${tab}`)}
+                </button>
+              ))}
+            </div>
+            {detailTab === "images" &&
+              (detail.data?.room_images.length ? (
+                <div className="room-image-grid">
+                  {detail.data.room_images.map((image) => (
+                    <a
+                      key={image.id}
+                      href={image.image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <img
+                        src={image.image_url}
+                        alt={detailRoom?.name || t("rooms.detailTitle")}
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">{t("common.empty")}</p>
+              ))}
+            {detailTab === "pricing" && (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t("rooms.rule")}</th>
+                      <th>{t("form.status")}</th>
+                      <th>{t("table.total")}</th>
+                      <th>{t("rooms.duration")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.data?.pricing_rules.length ? (
+                      detail.data.pricing_rules.map((rule) => (
+                        <tr key={rule.id}>
+                          <td>{rule.rule_name}</td>
+                          <td>
+                            <StatusBadge
+                              status={rule.active ? "ACTIVE" : "INACTIVE"}
+                            />
+                          </td>
+                          <td>
+                            {new Intl.NumberFormat("vi-VN").format(rule.price)}{" "}
+                            ₫
+                          </td>
+                          <td>
+                            {rule.min_duration_minutes ?? "—"}–
+                            {rule.max_duration_minutes ?? "—"}{" "}
+                            {t("common.minutes")}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="empty-cell">
+                          {t("common.empty")}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {detailTab === "blocked" && (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t("bookings.startAt")}</th>
+                      <th>{t("bookings.endAt")}</th>
+                      <th>{t("bookings.notes")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.data?.blocked_periods.length ? (
+                      detail.data.blocked_periods.map((period) => (
+                        <tr key={period.id}>
+                          <td>{new Date(period.start_at).toLocaleString()}</td>
+                          <td>{new Date(period.end_at).toLocaleString()}</td>
+                          <td>{period.reason || "—"}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="empty-cell">
+                          {t("common.empty")}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
     </>
   );
 }
@@ -257,9 +441,6 @@ function PageHead({ title, desc }: { title: string; desc: string }) {
         <h1>{title}</h1>
         <p className="muted">{desc}</p>
       </div>
-      <button className="primary">
-        + {useTranslation().t("common.create")}
-      </button>
     </div>
   );
 }

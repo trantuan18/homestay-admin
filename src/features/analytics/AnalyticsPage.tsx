@@ -47,7 +47,7 @@ export function AnalyticsPage() {
         </div>
         <div className="stat">
           <span>{t("bookingChart.pending")}</span>
-          <strong>{summary.confirmed_bookings || 0}</strong>
+          <strong>{summary.pending_bookings || 0}</strong>
         </div>
         <div className="stat">
           <span>{t("bookingChart.cancelled")}</span>

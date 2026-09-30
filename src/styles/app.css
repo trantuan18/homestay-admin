@@ -1,3 +1,22 @@
+.room-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.room-image-grid a {
+  display: block;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.room-image-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .app {
   min-height: 100vh;
   background: var(--color-bg);
@@ -693,6 +712,187 @@ label input:focus {
   }
   .login-card {
     padding: 26px;
+  }
+}
+
+.hourly-chart-heading {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.hourly-chart-heading .chart-note {
+  flex: none;
+}
+
+.hourly-chart-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.gantt-room-picker {
+  grid-column: 1 / -1;
+  min-width: 180px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  padding: 8px 10px;
+}
+
+.gantt-room-picker summary {
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gantt-room-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px 12px;
+  max-height: 116px;
+  overflow-y: auto;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--color-border);
+}
+
+.gantt-room-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.hourly-chart-filters .gantt-room-options label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.hourly-chart-filters .gantt-room-options label > span {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.gantt-room-options input {
+  accent-color: var(--color-primary-strong);
+}
+
+.room-booking-gantt {
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--color-text);
+}
+
+.room-booking-gantt .vis-timeline {
+  border-color: var(--color-border);
+  font-family: var(--font);
+}
+
+.room-booking-gantt .vis-panel,
+.room-booking-gantt .vis-labelset .vis-label,
+.room-booking-gantt .vis-time-axis .vis-text {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.room-booking-gantt .vis-grid.vis-minor {
+  border-color: var(--color-border);
+}
+
+.room-booking-gantt .vis-grid.vis-major {
+  border-color: var(--color-border);
+}
+
+.room-booking-gantt .vis-item {
+  min-height: 28px;
+  border-radius: 5px;
+  border-width: 0;
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.room-booking-gantt .room-gantt-pending {
+  background: var(--color-status-warning-bg);
+}
+
+.room-booking-gantt .room-gantt-confirmed,
+.room-booking-gantt .room-gantt-checked_in {
+  background: var(--color-status-success-bg);
+}
+
+.room-booking-gantt .room-gantt-checked_out {
+  background: var(--color-status-info-bg);
+}
+
+.room-booking-gantt .vis-current-time {
+  background-color: var(--color-error);
+}
+
+.gantt-empty {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+}
+
+.hourly-chart-filters label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hourly-chart-filters label > span {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.hourly-chart-filters input:not([type="checkbox"]),
+.hourly-chart-filters select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.booking-duration-hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .hourly-chart-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .room-booking-gantt .vis-item .vis-item-content {
+    padding: 0 2px;
+    font-size: 0;
+  }
+
+  .gantt-room-picker {
+    min-width: 0;
+  }
+
+  .hourly-chart-heading {
+    flex-direction: column;
+  }
+
+  .booking-duration-hint {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

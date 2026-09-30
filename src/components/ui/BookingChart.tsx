@@ -16,6 +16,7 @@ export function BookingChart({
   bookings,
   daily,
   days = 14,
+  hourlyDate,
 }: {
   bookings: Booking[];
   daily?: Array<{
@@ -27,9 +28,39 @@ export function BookingChart({
     checked_out: number;
   }>;
   days?: number;
+  hourlyDate?: string;
 }) {
   const { t } = useTranslation();
   const data = useMemo(() => {
+    if (hourlyDate) {
+      const rows = Array.from({ length: 24 }, (_, hour) => {
+        return {
+          key: String(hour),
+          label: `${String(hour).padStart(2, "0")}:00`,
+          pending: 0,
+          confirmed: 0,
+          completed: 0,
+        };
+      });
+      bookings.forEach((booking) => {
+        if (["CANCELLED", "EXPIRED", "NO_SHOW"].includes(booking.status))
+          return;
+        const start = new Date(booking.start_at);
+        const end = new Date(booking.end_at);
+        rows.forEach((row, hour) => {
+          const slotStart = new Date(
+            `${hourlyDate}T${String(hour).padStart(2, "0")}:00:00`,
+          );
+          const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+          if (start < slotEnd && end > slotStart) {
+            if (booking.status === "PENDING") row.pending++;
+            else if (booking.status === "CHECKED_OUT") row.completed++;
+            else row.confirmed++;
+          }
+        });
+      });
+      return rows;
+    }
     if (daily?.length) {
       return daily.map((row) => ({
         key: row.date,
@@ -84,7 +115,7 @@ export function BookingChart({
         row.cancelled++;
     });
     return rows;
-  }, [bookings, daily, days]);
+  }, [bookings, daily, days, hourlyDate]);
   return (
     <div className="booking-chart">
       <ResponsiveContainer width="100%" height={300}>
@@ -93,7 +124,7 @@ export function BookingChart({
           margin={{ top: 8, right: 8, left: -12, bottom: 4 }}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="label" />
+          <XAxis dataKey="label" interval={hourlyDate ? 2 : 0} />
           <YAxis allowDecimals={false} />
           <Tooltip />
           <Legend />
@@ -112,11 +143,13 @@ export function BookingChart({
             name={t("bookingChart.completed")}
             stackId="bookings"
           />
-          <Bar
-            dataKey="cancelled"
-            name={t("bookingChart.cancelled")}
-            stackId="bookings"
-          />
+          {!hourlyDate && (
+            <Bar
+              dataKey="cancelled"
+              name={t("bookingChart.cancelled")}
+              stackId="bookings"
+            />
+          )}
         </BarChart>
       </ResponsiveContainer>
     </div>

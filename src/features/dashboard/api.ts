@@ -67,21 +67,65 @@ export const roomsApi = {
     ),
 };
 export const bookingsApi = {
-  list: async (params = {}) =>
+  list: async (
+    params: {
+      offset?: number;
+      limit?: number;
+      property_id?: string;
+      room_id?: string;
+      status?: string;
+      payment_status?: string;
+      start_date?: string;
+      end_date?: string;
+      overlap_start?: string;
+      overlap_end?: string;
+    } = {},
+  ) =>
     parseList<Booking>(
       (await http.get<Paginated<Booking>>("/api/admin/bookings", { params }))
         .data,
     ),
+  create: async (payload: {
+    user_id: string;
+    room_id: string;
+    start_at: string;
+    end_at: string;
+    guest_count: number;
+    guest_name?: string;
+    guest_phone?: string;
+    guest_email?: string;
+    notes?: string;
+  }) => (await http.post("/api/admin/bookings", payload)).data,
+  updateStatus: async (
+    id: string,
+    status:
+      | "CONFIRMED"
+      | "CANCELLED"
+      | "EXPIRED"
+      | "CHECKED_IN"
+      | "NO_SHOW"
+      | "CHECKED_OUT",
+  ) => (await http.patch(`/api/admin/bookings/${id}/status`, { status })).data,
 };
 export const paymentsApi = {
-  list: async (params = {}) =>
-    parseList<Payment>(
-      (
-        await http.get<Paginated<Payment>>("/api/admin/bookings/payments", {
-          params,
-        })
-      ).data,
-    ),
+  list: async (bookingId: string) =>
+    (
+      await http.get<{ success: boolean; data: Payment[] }>(
+        `/api/admin/bookings/${bookingId}/payments`,
+      )
+    ).data,
+  record: async (
+    bookingId: string,
+    payload: {
+      payment_status: "UNPAID" | "PARTIAL" | "PAID" | "FAILED" | "REFUNDED";
+      amount?: number;
+      provider?: string;
+      transaction_id?: string;
+      notes?: string;
+    },
+  ) =>
+    (await http.patch(`/api/admin/bookings/${bookingId}/payment`, payload))
+      .data,
 };
 export const usersApi = {
   list: async (params = {}) =>
@@ -102,6 +146,10 @@ export const usersApi = {
         >("/api/admin/users", { params })
       ).data,
     ),
+  updateRole: async (
+    id: string,
+    role: "CUSTOMER" | "HOST" | "STAFF" | "ADMIN" | "SUPER_ADMIN",
+  ) => (await http.patch(`/api/admin/users/${id}/role`, { role })).data,
 };
 export const analyticsApi = {
   get: async (params: Record<string, unknown> = {}) =>

@@ -11,7 +11,36 @@ export type RoomPayload = {
   status: Room["status"];
 };
 
+export type RoomDetail = Room & {
+  room_images: Array<{ id: string; image_url: string; sort_order?: number }>;
+  pricing_rules: Array<{
+    id: string;
+    rule_name: string;
+    day_of_week: number | null;
+    start_time: string | null;
+    end_time: string | null;
+    min_duration_minutes: number | null;
+    max_duration_minutes: number | null;
+    price: number;
+    priority: number;
+    active: boolean;
+  }>;
+  blocked_periods: Array<{
+    id: string;
+    start_at: string;
+    end_at: string;
+    reason: string | null;
+    created_at: string;
+  }>;
+};
+
 export const roomsCrudApi = {
+  detail: async (id: string) =>
+    (
+      await http.get<{ success: boolean; data: RoomDetail }>(
+        `/api/admin/rooms/${id}`,
+      )
+    ).data.data,
   create: async (propertyId: string, payload: RoomPayload) =>
     (
       await http.post<{ success: boolean; data: Room }>(
