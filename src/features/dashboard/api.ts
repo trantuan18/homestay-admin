@@ -1,3 +1,4 @@
+import axios from "axios";
 import { http } from "../../services/http";
 import type {
   AdminDashboard,
@@ -33,24 +34,23 @@ const parseList = <T>(data: unknown): Paginated<T> => {
 };
 const parseDashboard = (data: unknown): AdminDashboard => {
   const record = data as Record<string, unknown>;
-  if (
-    !data ||
-    typeof data !== "object" ||
-    !record.revenue ||
-    !record.bookings ||
-    !record.rooms ||
-    typeof record.revenue !== "object" ||
-    typeof record.bookings !== "object" ||
-    typeof record.rooms !== "object"
-  ) {
+  if (!data || typeof data !== "object") {
     throw new Error("Invalid dashboard response from server");
+  }
+  if (record.success === false) {
+    throw new Error(typeof record.message === "string" ? record.message : "Dashboard API error");
+  }
+  if (!record.revenue || !record.bookings || !record.rooms) {
+    throw new Error("Dashboard response missing required fields");
   }
   return data as AdminDashboard;
 };
 export const dashboardApi = {
-  get: async () =>
+  get: async (
+    params: { from?: string; to?: string; property_id?: string } = {},
+  ) =>
     parseDashboard(
-      (await http.get<AdminDashboard>("/api/admin/dashboard")).data,
+      (await http.get<AdminDashboard>("/api/admin/dashboard", { params })).data,
     ),
 };
 export const propertiesApi = {
@@ -75,6 +75,8 @@ export const bookingsApi = {
       room_id?: string;
       status?: string;
       payment_status?: string;
+      from?: string;
+      to?: string;
       start_date?: string;
       end_date?: string;
       overlap_start?: string;
@@ -86,7 +88,7 @@ export const bookingsApi = {
         .data,
     ),
   create: async (payload: {
-    user_id: string;
+    user_id?: string;
     room_id: string;
     start_at: string;
     end_at: string;
@@ -96,16 +98,89 @@ export const bookingsApi = {
     guest_email?: string;
     notes?: string;
   }) => (await http.post("/api/admin/bookings", payload)).data,
+  calculatePrice: async (params: {
+    room_id: string;
+    start_at: string;
+    end_at: string;
+    guest_count?: number;
+  }) =>
+    (
+      await http.get<{
+        success: boolean;
+        data: {
+          room_id: string;
+          duration_minutes: number;
+          hourly_price: number;
+          subtotal: number;
+          room_price?: number;
+          standard_guest_count?: number;
+          extra_guest_count?: number;
+          extra_guest_fee?: number;
+          extra_guest_unit_price?: number;
+          holiday_surcharge?: number;
+          discount: number;
+          tax: number;
+          total: number;
+          currency: string;
+          pricing_rule_id?: string | null;
+          pricing_rule_name?: string | null;
+        };
+      }>("/api/admin/bookings/price", { params })
+    ).data,
   updateStatus: async (
     id: string,
     status:
+      | "PENDING"
       | "CONFIRMED"
       | "CANCELLED"
       | "EXPIRED"
       | "CHECKED_IN"
       | "NO_SHOW"
       | "CHECKED_OUT",
-  ) => (await http.patch(`/api/admin/bookings/${id}/status`, { status })).data,
+    reason = "Admin status update",
+  ) => {
+    const attempts = [
+      {
+        method: "patch",
+        url: `/api/admin/bookings/${id}/status`,
+        data: { status, reason },
+      },
+      {
+        method: "patch",
+        url: `/api/admin/bookings/${id}`,
+        data: { status, reason },
+      },
+      {
+        method: "put",
+        url: `/api/admin/bookings/${id}/status`,
+        data: { status, reason },
+      },
+      {
+        method: "put",
+        url: `/api/admin/bookings/${id}`,
+        data: { status, reason },
+      },
+    ] as const;
+
+    let lastError: unknown;
+    for (const attempt of attempts) {
+      try {
+        const response = await http.request({
+          method: attempt.method,
+          url: attempt.url,
+          data: attempt.data,
+        });
+        return response.data;
+      } catch (error) {
+        lastError = error;
+        if (!axios.isAxiosError(error) || error.response?.status !== 404) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  },
 };
 export const paymentsApi = {
   list: async (bookingId: string) =>
@@ -155,3 +230,183 @@ export const analyticsApi = {
   get: async (params: Record<string, unknown> = {}) =>
     (await http.get<AdminAnalytics>("/api/admin/analytics", { params })).data,
 };
+
+export const notificationsApi = {
+  list: async (params: { unread_only?: string; limit?: number } = {}) => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").Notification[];
+      unread_count?: number;
+    }>("/api/notifications", { params });
+    return res.data;
+  },
+  markAsRead: async (id: string) => {
+    return (await http.patch(`/api/notifications/${id}/read`)).data;
+  },
+  markAllAsRead: async () => {
+    return (await http.patch("/api/notifications/read-all")).data;
+  },
+};
+
+export const auditLogsApi = {
+  list: async (params: {
+    action?: string;
+    entity_type?: string;
+    user_id?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    return parseList<import("../../types/api").AuditLog>(
+      (await http.get("/api/admin/audit-logs", { params })).data,
+    );
+  },
+};
+
+export const amenitiesApi = {
+  listAll: async () => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").Amenity[];
+    }>("/api/amenities");
+    return res.data?.data || [];
+  },
+  listForRoom: async (roomId: string) => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").RoomAmenity[];
+    }>(`/api/rooms/${roomId}/amenities`);
+    return res.data?.data || [];
+  },
+  addToRoom: async (roomId: string, amenityId: string) => {
+    return (
+      await http.post(`/api/rooms/${roomId}/amenities`, { amenity_id: amenityId })
+    ).data;
+  },
+  removeFromRoom: async (roomId: string, amenityId: string) => {
+    return (await http.delete(`/api/rooms/${roomId}/amenities/${amenityId}`)).data;
+  },
+};
+
+export const reviewsApi = {
+  listForRoom: async (roomId: string) => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").Review[];
+    }>(`/api/rooms/${roomId}/reviews`);
+    return res.data?.data || [];
+  },
+};
+
+export const pricingRulesApi = {
+  list: async (roomId: string) => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").PricingRule[];
+    }>(`/api/rooms/${roomId}/pricing-rules`);
+    return res.data?.data || [];
+  },
+  create: async (
+    roomId: string,
+    payload: Omit<import("../../types/api").PricingRule, "id">,
+  ) => {
+    return (await http.post(`/api/rooms/${roomId}/pricing-rules`, payload)).data;
+  },
+  update: async (
+    roomId: string,
+    ruleId: string,
+    payload: Partial<import("../../types/api").PricingRule>,
+  ) => {
+    return (
+      await http.patch(`/api/rooms/${roomId}/pricing-rules/${ruleId}`, payload)
+    ).data;
+  },
+  delete: async (roomId: string, ruleId: string) => {
+    return (await http.delete(`/api/rooms/${roomId}/pricing-rules/${ruleId}`))
+      .data;
+  },
+};
+
+export const blockedPeriodsApi = {
+  list: async (roomId: string) => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").BlockedPeriod[];
+    }>(`/api/rooms/${roomId}/blocked-periods`);
+    return res.data?.data || [];
+  },
+  create: async (
+    roomId: string,
+    payload: { start_at: string; end_at: string; reason?: string },
+  ) => {
+    return (await http.post(`/api/rooms/${roomId}/blocked-periods`, payload)).data;
+  },
+  delete: async (roomId: string, blockedId: string) => {
+    return (await http.delete(`/api/rooms/${roomId}/blocked-periods/${blockedId}`))
+      .data;
+  },
+};
+
+export const roomImagesApi = {
+  upload: async (roomId: string, file: File, isPrimary = false) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (isPrimary) formData.append("is_primary", "true");
+    const res = await http.post(
+      `/api/admin/rooms/${roomId}/images/upload`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return res.data;
+  },
+  setPrimary: async (roomId: string, imageId: string) => {
+    return (
+      await http.patch(`/api/admin/rooms/${roomId}/images/${imageId}`, {
+        is_primary: true,
+      })
+    ).data;
+  },
+  delete: async (roomId: string, imageId: string) => {
+    return (await http.delete(`/api/admin/rooms/${roomId}/images/${imageId}`))
+      .data;
+  },
+};
+
+export const pricingPlansApi = {
+  list: async () => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").PricingPlan[];
+    }>("/api/admin/pricing-plans");
+    return res.data?.data || [];
+  },
+  get: async (id: string) => {
+    const res = await http.get<{
+      success: boolean;
+      data: import("../../types/api").PricingPlan;
+    }>(`/api/admin/pricing-plans/${id}`);
+    return res.data?.data;
+  },
+  create: async (payload: Partial<import("../../types/api").PricingPlan>) => {
+    const res = await http.post<{
+      success: boolean;
+      data: import("../../types/api").PricingPlan;
+    }>("/api/admin/pricing-plans", payload);
+    return res.data?.data;
+  },
+  update: async (
+    id: string,
+    payload: Partial<import("../../types/api").PricingPlan>,
+  ) => {
+    const res = await http.put<{
+      success: boolean;
+      data: import("../../types/api").PricingPlan;
+    }>(`/api/admin/pricing-plans/${id}`, payload);
+    return res.data?.data;
+  },
+  delete: async (id: string) => {
+    return (await http.delete(`/api/admin/pricing-plans/${id}`)).data;
+  },
+};
+

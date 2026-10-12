@@ -517,6 +517,12 @@ tr:last-child td {
   justify-content: flex-end;
   margin-bottom: 16px;
 }
+.pagination {
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+}
 .toolbar input,
 .toolbar select {
   margin-right: auto;
@@ -731,6 +737,11 @@ label input:focus {
   margin: 0 0 14px;
 }
 
+.dashboard-range-filters {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
 .gantt-room-picker {
   grid-column: 1 / -1;
   min-width: 180px;
@@ -870,6 +881,48 @@ label input:focus {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.booking-datetime-picker {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.react-datepicker {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  font-family: var(--font);
+}
+
+.react-datepicker__header,
+.react-datepicker-time__header,
+.react-datepicker__current-month {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+.react-datepicker__day,
+.react-datepicker__day-name,
+.react-datepicker__time-list-item {
+  color: var(--color-text);
+}
+
+.react-datepicker__day:hover,
+.react-datepicker__time-list-item:hover {
+  background: var(--color-surface-2);
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
 }
 
 @media (max-width: 640px) {
@@ -1070,3 +1123,306 @@ button {
     max-height: 94vh;
   }
 }
+
+/* Status Multiselect Dropdown */
+.status-multiselect-wrap {
+  position: relative;
+  display: inline-block;
+}
+.status-multiselect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.status-multiselect-btn:hover {
+  background: var(--color-surface-2);
+}
+.status-multiselect-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.status-option-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text);
+}
+.status-option-item:hover {
+  background: var(--color-surface-2);
+}
+.status-option-item.active {
+  background: var(--color-surface-2);
+  font-weight: 500;
+}
+.status-option-item input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-focus);
+}
+.status-dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
+/* Price Estimate Card in Booking Form */
+.price-estimate-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-top: 4px;
+  min-height: 54px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.price-estimate-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+.price-estimate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.price-estimate-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+.price-estimate-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--color-status-info-bg);
+  color: var(--color-info);
+}
+.price-estimate-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  font-size: 12px;
+  color: var(--color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.price-estimate-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+.price-estimate-error {
+  color: var(--color-error);
+  font-size: 13px;
+}
+.price-breakdown-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.price-estimate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.price-breakdown-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.price-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+.price-breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.price-item-label {
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.price-item-sub {
+  font-size: 12px;
+  color: var(--color-muted);
+  font-weight: normal;
+}
+.price-item-value {
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.price-breakdown-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 4px;
+  border-top: 1px dashed var(--color-border);
+}
+.price-total-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.price-total-sub {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+/* Dashboard Filter Bar & Presets */
+.dashboard-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.dashboard-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 150px;
+}
+.dashboard-filter-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.dashboard-filter-group input,
+.dashboard-filter-group select {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.dashboard-quick-presets {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.dashboard-preset-btn {
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.dashboard-preset-btn:hover,
+.dashboard-preset-btn.active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary-strong);
+}
+
+/* Gantt Chart Interaction Bar */
+.gantt-interaction-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.gantt-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gantt-nav-btns button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.gantt-nav-btns button:hover {
+  background: var(--color-surface-2);
+}
+.gantt-nav-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--color-border);
+  margin: 0 4px;
+}
+.gantt-scroll-hint {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+

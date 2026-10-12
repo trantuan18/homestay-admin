@@ -1,22 +1,28 @@
 import { http } from "../../services/http";
 import type { Paginated, Property } from "../../types/api";
 
-export type PropertyPayload = {
-  owner_id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  address?: string;
-  city: string;
-  country: string;
-  timezone: string;
-  booking_interval_minutes: number;
-  minimum_booking_minutes: number;
-  maximum_booking_minutes: number;
-  cancellation_deadline_hours: number;
-  cancellation_fee_percent: number;
-  status: Property["status"];
+const ensureSuccessful = <T>(response: T): T => {
+  if (
+    response &&
+    typeof response === "object" &&
+    "success" in response &&
+    response.success === false
+  ) {
+    const message = "message" in response ? response.message : undefined;
+    throw new Error(typeof message === "string" ? message : "Request failed");
+  }
+  return response;
 };
+
+export type PropertyPayload = {
+  name: string;
+  address?: string;
+  description?: string;
+  city?: string;
+  country?: string;
+  pricing_plan_id?: string | null;
+};
+
 const normalizeList = (response: unknown): Paginated<Property> => {
   const value = response as {
     data?: Property[];
@@ -42,9 +48,11 @@ export const propertiesCrudApi = {
       (await http.get<unknown>("/api/admin/properties", { params })).data,
     ),
   create: async (payload: PropertyPayload) =>
-    (await http.post("/api/admin/properties", payload)).data,
-  update: async (id: string, payload: Partial<PropertyPayload>) =>
-    (await http.patch(`/api/admin/properties/${id}`, payload)).data,
+    ensureSuccessful((await http.post("/api/admin/properties", payload)).data),
+  update: async (id: string, payload: PropertyPayload) =>
+    ensureSuccessful(
+      (await http.patch(`/api/admin/properties/${id}`, payload)).data,
+    ),
   remove: async (id: string) =>
-    (await http.delete(`/api/admin/properties/${id}`)).data,
+    ensureSuccessful((await http.delete(`/api/admin/properties/${id}`)).data),
 };

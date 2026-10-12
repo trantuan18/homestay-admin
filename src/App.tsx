@@ -6,10 +6,12 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { PropertiesPage } from "./features/properties/PropertiesPage";
 import { RoomsPage } from "./features/rooms/RoomsPage";
+import { PricingPlansPage } from "./features/pricing/PricingPlansPage";
 import { BookingsPage } from "./features/bookings/BookingsPage";
 import { PaymentsPage } from "./features/payments/PaymentsPage";
 import { UsersPage } from "./features/users/UsersPage";
 import { AnalyticsPage } from "./features/analytics/AnalyticsPage";
+import { AuditLogsPage } from "./features/audit-logs/AuditLogsPage";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { queryClient } from "./services/query";
 import "./i18n";
@@ -24,10 +26,12 @@ function Protected() {
         <Route index element={<DashboardPage />} />
         <Route path="properties" element={<PropertiesPage />} />
         <Route path="rooms" element={<RoomsPage />} />
+        <Route path="pricing-plans" element={<PricingPlansPage />} />
         <Route path="bookings" element={<BookingsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="audit-logs" element={<AuditLogsPage />} />
       </Routes>
     </MainLayout>
   );

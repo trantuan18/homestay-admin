@@ -1,5 +1,7 @@
 import axios from "axios";
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const baseURL = import.meta.env.DEV
+  ? ""
+  : import.meta.env.VITE_API_URL || "http://localhost:3000";
 export const http = axios.create({
   baseURL,
   timeout: 15000,
@@ -64,11 +66,30 @@ http.interceptors.response.use(
   },
 );
 export const apiError = (error: unknown) => {
-  if (axios.isAxiosError(error))
-    return (
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message
-    );
+  if (axios.isAxiosError(error)) {
+    const response = error.response?.data as
+      | {
+          message?: unknown;
+          error?: unknown;
+          errors?: unknown;
+        }
+      | undefined;
+    const message = response?.message ?? response?.error ?? response?.errors;
+    if (typeof message === "string") return message;
+    if (Array.isArray(message))
+      return message
+        .map((item) =>
+          typeof item === "string"
+            ? item
+            : item && typeof item === "object" && "message" in item
+              ? String(item.message)
+              : JSON.stringify(item),
+        )
+        .join("; ");
+    if (message && typeof message === "object" && "message" in message)
+      return String(message.message);
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
   return "Unknown error";
 };

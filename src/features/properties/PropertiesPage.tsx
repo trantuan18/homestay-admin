@@ -3,42 +3,49 @@ import type { FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { propertiesCrudApi, type PropertyPayload } from "./api";
-import type { Property } from "../../types/api";
+import { pricingPlansApi } from "../dashboard/api";
+import type { Property, PricingPlan } from "../../types/api";
+import { apiError } from "../../services/http";
 import { Loading } from "../../components/ui/Loading";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Modal } from "../../components/ui/Modal";
 
 const emptyForm: PropertyPayload = {
-  owner_id: localStorage.getItem("user_id") || "",
   name: "",
-  slug: "",
-  description: "",
   address: "",
+  description: "",
   city: "",
   country: "Vietnam",
-  timezone: "Asia/Ho_Chi_Minh",
-  booking_interval_minutes: 60,
-  minimum_booking_minutes: 60,
-  maximum_booking_minutes: 1440,
-  cancellation_deadline_hours: 24,
-  cancellation_fee_percent: 0,
-  status: "ACTIVE",
+  pricing_plan_id: "",
 };
 
 export function PropertiesPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | Property["status"]>(
+    "ACTIVE",
+  );
+  const [page, setPage] = useState(0);
+  const pageSize = 100;
   const [editing, setEditing] = useState<Property | null>(null);
   const [open, setOpen] = useState(false);
+
+  const pricingPlans = useQuery({
+    queryKey: ["admin-pricing-plans"],
+    queryFn: () => pricingPlansApi.list(),
+  });
+
   const q = useQuery({
-    queryKey: ["admin-properties"],
-    queryFn: () => propertiesCrudApi.list({ offset: 0, limit: 100 }),
+    queryKey: ["admin-properties", page],
+    queryFn: () =>
+      propertiesCrudApi.list({ offset: page * pageSize, limit: pageSize }),
     staleTime: 30_000,
   });
+
   const mutation = useMutation({
     mutationFn: ({ id, payload }: { id?: string; payload: PropertyPayload }) =>
       id
@@ -50,42 +57,56 @@ export function PropertiesPage() {
       setEditing(null);
       toast.success(t("properties.saved"));
     },
-    onError: () => toast.error(t("properties.saveError")),
+    onError: (error) =>
+      toast.error(`${t("properties.saveError")} ${apiError(error)}`),
   });
+
   const remove = useMutation({
     mutationFn: propertiesCrudApi.remove,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-properties"] });
       toast.success(t("properties.deleted"));
     },
-    onError: () => toast.error(t("properties.deleteError")),
+    onError: (error) =>
+      toast.error(`${t("properties.deleteError")} ${apiError(error)}`),
   });
+
   const data = useMemo(() => {
     const rows = q.data?.data || [];
     const s = search.trim().toLowerCase();
-    return s
-      ? rows.filter((p) =>
-          [p.name, p.slug, p.city, p.country].some((v) =>
-            (v || "").toLowerCase().includes(s),
-          ),
-        )
-      : rows;
-  }, [q.data, search]);
+    return rows.filter((p) => {
+      const matchesSearch = [
+        p.name,
+        p.address,
+        p.city,
+        p.country,
+        p.description,
+      ].some((v) => (v || "").toLowerCase().includes(s));
+      return (
+        matchesSearch && (statusFilter === "ALL" || p.status === statusFilter)
+      );
+    });
+  }, [q.data, search, statusFilter]);
+
   const startCreate = () => {
     setEditing(null);
     setOpen(true);
   };
+
   const startEdit = (p: Property) => {
     setEditing(p);
     setOpen(true);
   };
+
   const handleDelete = (p: Property) => {
     if (window.confirm(t("properties.confirmDelete", { name: p.name })))
       remove.mutate(p.id);
   };
+
   if (q.isLoading) return <Loading />;
   if (q.isError)
     return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
+
   return (
     <>
       <div className="page-head">
@@ -98,25 +119,55 @@ export function PropertiesPage() {
           <Plus size={17} /> {t("common.create")}
         </button>
       </div>
+
       <div className="panel">
         <div className="toolbar">
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
             placeholder={t("common.search")}
           />
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as typeof statusFilter);
+              setPage(0);
+            }}
+            aria-label={t("common.status")}
+          >
+            <option value="ACTIVE">{t("status.ACTIVE", "Đang hoạt động")}</option>
+            <option value="ALL">{t("common.all", "Tất cả")}</option>
+            <option value="INACTIVE">{t("status.INACTIVE", "Không hoạt động")}</option>
+            <option value="SUSPENDED">{t("status.SUSPENDED", "Tạm ngưng")}</option>
+          </select>
+          <button
+            className="ghost icon-btn"
+            onClick={() => q.refetch()}
+            disabled={q.isFetching}
+            aria-label={t("common.refresh")}
+            title={t("common.refresh")}
+          >
+            <RefreshCw size={16} />
+          </button>
           <span className="toolbar-meta">
-            {data.length} / {q.data?.total ?? data.length}
+            {data.length} · {page + 1} /{" "}
+            {Math.max(1, Math.ceil((q.data?.total ?? 0) / pageSize))}
           </span>
         </div>
+
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>{t("table.name")}</th>
+                <th>{t("properties.pricingPlan", "Bảng giá")}</th>
+                <th>{t("properties.owner", "Chủ sở hữu")}</th>
+                <th>{t("form.address", "Địa chỉ")}</th>
                 <th>{t("table.city")}</th>
-                <th>{t("table.timezone")}</th>
-                <th>{t("table.bookingInterval")}</th>
+                <th>{t("form.country", "Quốc gia")}</th>
                 <th>{t("common.status")}</th>
                 <th>{t("common.actions")}</th>
               </tr>
@@ -127,13 +178,39 @@ export function PropertiesPage() {
                   <tr key={p.id}>
                     <td>
                       <b>{p.name}</b>
-                      <small className="subline">{p.slug}</small>
+                      {p.description && (
+                        <small
+                          className="subline"
+                          style={{
+                            maxWidth: 220,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            display: "block",
+                          }}
+                        >
+                          {p.description}
+                        </small>
+                      )}
                     </td>
-                    <td>{p.city || "—"}</td>
-                    <td>{p.timezone}</td>
                     <td>
-                      {p.booking_interval_minutes} {t("common.minutes")}
+                      {p.pricing_plan?.name ? (
+                        <span className="badge badge-info" title={p.pricing_plan.name}>
+                          {p.pricing_plan.name}
+                        </span>
+                      ) : (
+                        <span className="muted text-sm">—</span>
+                      )}
                     </td>
+                    <td>
+                      <b>{p.profiles?.full_name || "—"}</b>
+                      {p.profiles?.phone && (
+                        <small className="subline">{p.profiles.phone}</small>
+                      )}
+                    </td>
+                    <td>{p.address || "—"}</td>
+                    <td>{p.city || "—"}</td>
+                    <td>{p.country || "—"}</td>
                     <td>
                       <StatusBadge status={p.status} />
                     </td>
@@ -157,7 +234,7 @@ export function PropertiesPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="empty-cell">
+                  <td colSpan={8} className="empty-cell">
                     {t("common.empty")}
                   </td>
                 </tr>
@@ -165,10 +242,40 @@ export function PropertiesPage() {
             </tbody>
           </table>
         </div>
+
+        {(q.data?.total ?? 0) > pageSize && (
+          <div className="toolbar pagination">
+            <span className="muted">
+              {page * pageSize + 1}–
+              {Math.min((page + 1) * pageSize, q.data?.total ?? 0)} /{" "}
+              {q.data?.total}
+            </span>
+            <div className="row-actions">
+              <button
+                className="ghost"
+                disabled={page === 0 || q.isFetching}
+                onClick={() => setPage((current) => current - 1)}
+              >
+                {t("common.previous")}
+              </button>
+              <button
+                className="ghost"
+                disabled={
+                  (page + 1) * pageSize >= (q.data?.total ?? 0) || q.isFetching
+                }
+                onClick={() => setPage((current) => current + 1)}
+              >
+                {t("common.next")}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
       <PropertyForm
         open={open}
         property={editing}
+        pricingPlans={pricingPlans.data || []}
         busy={mutation.isPending}
         onClose={() => {
           setOpen(false);
@@ -183,56 +290,57 @@ export function PropertiesPage() {
 function PropertyForm({
   open,
   property,
+  pricingPlans = [],
   busy,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   property: Property | null;
+  pricingPlans?: PricingPlan[];
   busy: boolean;
   onClose: () => void;
   onSubmit: (payload: PropertyPayload) => void;
 }) {
   const { t } = useTranslation();
   const [form, setForm] = useState<PropertyPayload>(emptyForm);
+
   useEffect(() => {
-    if (open)
+    if (open) {
       setForm(
         property
           ? {
-              owner_id: property.owner_id,
-              name: property.name,
-              slug: property.slug,
-              description: property.description || "",
+              name: property.name || "",
               address: property.address || "",
+              description: property.description || "",
               city: property.city || "",
               country: property.country || "Vietnam",
-              timezone: property.timezone,
-              booking_interval_minutes: property.booking_interval_minutes,
-              minimum_booking_minutes: property.minimum_booking_minutes,
-              maximum_booking_minutes: property.maximum_booking_minutes,
-              cancellation_deadline_hours: property.cancellation_deadline_hours,
-              cancellation_fee_percent: property.cancellation_fee_percent,
-              status: property.status,
+              pricing_plan_id: property.pricing_plan_id || "",
             }
           : emptyForm,
       );
+    }
   }, [open, property]);
-  const set = (key: keyof PropertyPayload, value: string | number) =>
+
+  const set = (key: keyof PropertyPayload, value: string) =>
     setForm((v) => ({ ...v, [key]: value }));
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (
-      !form.name.trim() ||
-      !form.slug.trim() ||
-      !form.city.trim() ||
-      !form.country.trim()
-    ) {
-      toast.error(t("properties.required"));
+    if (!form.name.trim()) {
+      toast.error(t("properties.nameRequired", "Vui lòng nhập tên cơ sở"));
       return;
     }
-    onSubmit(form);
+    onSubmit({
+      name: form.name.trim(),
+      address: form.address?.trim() || "",
+      description: form.description?.trim() || "",
+      city: form.city?.trim() || "",
+      country: form.country?.trim() || "Vietnam",
+      pricing_plan_id: form.pricing_plan_id || null,
+    });
   };
+
   return (
     <Modal
       open={open}
@@ -251,124 +359,61 @@ function PropertyForm({
       }
     >
       <form id="property-form" className="form-grid" onSubmit={submit}>
-        <label>
-          <span>{t("form.name")}</span>
+        <label className="span-2">
+          <span>{t("form.name", "Tên cơ sở lưu trú")} *</span>
           <input
+            required
+            autoFocus
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
-          />
-        </label>
-        <label>
-          <span>{t("form.slug")}</span>
-          <input
-            value={form.slug}
-            onChange={(e) => set("slug", e.target.value)}
+            placeholder={t("form.namePlaceholder", "Nhập tên cơ sở")}
           />
         </label>
         <label className="span-2">
-          <span>{t("form.description")}</span>
-          <textarea
-            rows={3}
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
-        </label>
-        <label className="span-2">
-          <span>{t("form.address")}</span>
-          <input
-            value={form.address}
-            onChange={(e) => set("address", e.target.value)}
-          />
-        </label>
-        <label>
-          <span>{t("form.city")}</span>
-          <input
-            value={form.city}
-            onChange={(e) => set("city", e.target.value)}
-          />
-        </label>
-        <label>
-          <span>{t("form.country")}</span>
-          <input
-            value={form.country}
-            onChange={(e) => set("country", e.target.value)}
-          />
-        </label>
-        <label>
-          <span>{t("form.timezone")}</span>
-          <input
-            value={form.timezone}
-            onChange={(e) => set("timezone", e.target.value)}
-          />
-        </label>
-        <label>
-          <span>{t("form.status")}</span>
+          <span>{t("properties.pricingPlan", "Bảng giá áp dụng")}</span>
           <select
-            value={form.status}
-            onChange={(e) =>
-              set("status", e.target.value as Property["status"])
-            }
+            value={form.pricing_plan_id || ""}
+            onChange={(e) => set("pricing_plan_id", e.target.value)}
           >
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="INACTIVE">INACTIVE</option>
-            <option value="SUSPENDED">SUSPENDED</option>
+            <option value="">-- Chưa gán bảng giá (Dùng mặc định) --</option>
+            {pricingPlans.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                {plan.name} {plan.is_default ? " (Mặc định)" : ""}
+              </option>
+            ))}
           </select>
         </label>
-        <label>
-          <span>{t("form.bookingInterval")}</span>
+        <label className="span-2">
+          <span>{t("form.address", "Địa chỉ")}</span>
           <input
-            type="number"
-            min="1"
-            value={form.booking_interval_minutes}
-            onChange={(e) =>
-              set("booking_interval_minutes", Number(e.target.value))
-            }
+            value={form.address || ""}
+            onChange={(e) => set("address", e.target.value)}
+            placeholder={t("form.addressPlaceholder", "Nhập địa chỉ cơ sở")}
+          />
+        </label>
+        <label className="span-2">
+          <span>{t("form.description", "Mô tả")}</span>
+          <textarea
+            rows={3}
+            value={form.description || ""}
+            onChange={(e) => set("description", e.target.value)}
+            placeholder={t("form.descriptionPlaceholder", "Nhập mô tả cơ sở")}
           />
         </label>
         <label>
-          <span>{t("form.minimumBooking")}</span>
+          <span>{t("form.city", "Thành phố")}</span>
           <input
-            type="number"
-            min="1"
-            value={form.minimum_booking_minutes}
-            onChange={(e) =>
-              set("minimum_booking_minutes", Number(e.target.value))
-            }
+            value={form.city || ""}
+            onChange={(e) => set("city", e.target.value)}
+            placeholder={t("form.cityPlaceholder", "Nhập thành phố")}
           />
         </label>
         <label>
-          <span>{t("form.maximumBooking")}</span>
+          <span>{t("form.country", "Quốc gia")}</span>
           <input
-            type="number"
-            min="1"
-            value={form.maximum_booking_minutes}
-            onChange={(e) =>
-              set("maximum_booking_minutes", Number(e.target.value))
-            }
-          />
-        </label>
-        <label>
-          <span>{t("form.cancelDeadline")}</span>
-          <input
-            type="number"
-            min="0"
-            value={form.cancellation_deadline_hours}
-            onChange={(e) =>
-              set("cancellation_deadline_hours", Number(e.target.value))
-            }
-          />
-        </label>
-        <label>
-          <span>{t("form.cancelFee")}</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={form.cancellation_fee_percent}
-            onChange={(e) =>
-              set("cancellation_fee_percent", Number(e.target.value))
-            }
+            value={form.country || ""}
+            onChange={(e) => set("country", e.target.value)}
+            placeholder={t("form.countryPlaceholder", "Nhập quốc gia")}
           />
         </label>
       </form>
