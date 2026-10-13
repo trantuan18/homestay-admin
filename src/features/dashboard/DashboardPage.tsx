@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { dashboardApi, bookingsApi, propertiesApi, roomsApi } from "./api";
@@ -6,13 +6,8 @@ import { Loading } from "../../components/ui/Loading";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Modal } from "../../components/ui/Modal";
+import { RoomBookingGantt } from "../../components/ui/RoomBookingGantt";
 import type { Booking } from "../../types/api";
-
-const RoomBookingGantt = lazy(() =>
-  import("../../components/ui/RoomBookingGantt").then((module) => ({
-    default: module.RoomBookingGantt,
-  })),
-);
 
 const money = (n: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -115,20 +110,70 @@ export function DashboardPage() {
   });
 
   // Master date range bounds for chart and list
-  const chartStart = new Date(`${dashboardFrom}T00:00:00`);
-  const chartEnd = new Date(`${dashboardTo}T23:59:59`);
+  const getSafeIso = (dateStr: string, timeStr: string, fallbackDays: number) => {
+    if (!dateStr) {
+      const d = new Date();
+      d.setDate(d.getDate() + fallbackDays);
+      return d.toISOString();
+    }
+    const d = new Date(`${dateStr}T${timeStr}`);
+    if (Number.isNaN(d.getTime())) {
+      const fb = new Date();
+      fb.setDate(fb.getDate() + fallbackDays);
+      return fb.toISOString();
+    }
+    return d.toISOString();
+  };
 
   const bookings = useQuery({
     queryKey: ["admin-booking-chart", dashboardFrom, dashboardTo, propertyId],
     queryFn: () =>
       bookingsApi.list({
         limit: 500,
-        overlap_start: chartStart.toISOString(),
-        overlap_end: chartEnd.toISOString(),
+        overlap_start: getSafeIso(dashboardFrom, "00:00:00", 0),
+        overlap_end: getSafeIso(dashboardTo, "23:59:59", 7),
         ...(propertyId ? { property_id: propertyId } : {}),
       }),
     staleTime: 30_000,
   });
+
+  const visibleRooms = useMemo(
+    () =>
+      (rooms.data?.data || []).filter(
+        (room) =>
+          room.status === "AVAILABLE" &&
+          (room.properties?.status ? room.properties.status === "ACTIVE" : true) &&
+          (selectedRoomIds.length === 0 || selectedRoomIds.includes(room.id)),
+      ),
+    [rooms.data?.data, selectedRoomIds],
+  );
+
+  const visibleRoomIds = useMemo(
+    () => new Set(visibleRooms.map((room) => room.id)),
+    [visibleRooms],
+  );
+
+  // Filter bookings in range by search query
+  const filteredBookings = useMemo(
+    () =>
+      (bookings.data?.data || [])
+        .filter((b) => {
+          const matchRoom =
+            selectedRoomIds.length === 0 || visibleRoomIds.has(b.room_id);
+          if (!matchRoom) return false;
+          const term = search.trim().toLowerCase();
+          if (!term) return true;
+          return (
+            b.booking_code?.toLowerCase().includes(term) ||
+            b.guest_name?.toLowerCase().includes(term) ||
+            b.guest_phone?.toLowerCase().includes(term) ||
+            b.guest_email?.toLowerCase().includes(term) ||
+            b.rooms?.name?.toLowerCase().includes(term)
+          );
+        })
+        .sort((a, b) => (b.start_at || "").localeCompare(a.start_at || "")),
+    [bookings.data?.data, selectedRoomIds, visibleRoomIds, search],
+  );
 
   if (q.isLoading) return <Loading />;
   if (q.isError)
@@ -138,32 +183,6 @@ export function DashboardPage() {
   const occupancy = d.rooms.total
     ? Math.round(((d.rooms.total - d.rooms.available) / d.rooms.total) * 100)
     : 0;
-
-  const visibleRooms = (rooms.data?.data || []).filter(
-    (room) =>
-      room.status === "AVAILABLE" &&
-      (room.properties?.status ? room.properties.status === "ACTIVE" : true) &&
-      (selectedRoomIds.length === 0 || selectedRoomIds.includes(room.id)),
-  );
-  const visibleRoomIds = new Set(visibleRooms.map((room) => room.id));
-
-  // Filter bookings in range by search query
-  const filteredBookings = (bookings.data?.data || [])
-    .filter((b) => {
-      const matchRoom =
-        selectedRoomIds.length === 0 || visibleRoomIds.has(b.room_id);
-      if (!matchRoom) return false;
-      const term = search.trim().toLowerCase();
-      if (!term) return true;
-      return (
-        b.booking_code?.toLowerCase().includes(term) ||
-        b.guest_name?.toLowerCase().includes(term) ||
-        b.guest_phone?.toLowerCase().includes(term) ||
-        b.guest_email?.toLowerCase().includes(term) ||
-        b.rooms?.name?.toLowerCase().includes(term)
-      );
-    })
-    .sort((a, b) => b.start_at.localeCompare(a.start_at));
 
   const dashboardPeriod = `${dashboardFrom} – ${dashboardTo}`;
 
@@ -350,15 +369,13 @@ export function DashboardPage() {
             onRetry={() => bookings.refetch()}
           />
         ) : (
-          <Suspense fallback={<Loading />}>
-            <RoomBookingGantt
-              bookings={bookings.data?.data || []}
-              rooms={visibleRooms}
-              startDate={dashboardFrom}
-              endDate={dashboardTo}
-              onSelectBooking={(b) => setDetailBooking(b)}
-            />
-          </Suspense>
+          <RoomBookingGantt
+            bookings={bookings.data?.data || []}
+            rooms={visibleRooms}
+            startDate={dashboardFrom}
+            endDate={dashboardTo}
+            onSelectBooking={(b) => setDetailBooking(b)}
+          />
         )}
       </div>
 
@@ -545,12 +562,94 @@ export function DashboardPage() {
                 paddingTop: "0.75rem",
               }}
             >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <p className="muted" style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600 }}>
+                  Chi tiết các khoản phí
+                </p>
+                {detailBooking.price_breakdown?.pricing_rule_name && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      background: "var(--color-surface)",
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-muted)",
+                    }}
+                  >
+                    {detailBooking.price_breakdown.pricing_rule_name}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
+                <span>• Tiền phòng cơ bản:</span>
+                <span>
+                  {money(
+                    detailBooking.price_breakdown?.room_price !== undefined
+                      ? detailBooking.price_breakdown.room_price
+                      : (detailBooking.subtotal || detailBooking.total) -
+                          (detailBooking.price_breakdown?.extra_guest_fee || 0),
+                  )}
+                </span>
+              </div>
+
+              {Number(detailBooking.price_breakdown?.extra_guest_fee || 0) > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.85rem",
+                    marginBottom: "4px",
+                    color: "var(--color-warning)",
+                  }}
+                >
+                  <span>
+                    • Phụ thu khách thêm ({detailBooking.price_breakdown?.extra_guest_count} khách, từ người thứ{" "}
+                    {(detailBooking.price_breakdown?.standard_guest_count ?? 2) + 1}):
+                  </span>
+                  <span>+{money(detailBooking.price_breakdown!.extra_guest_fee!)}</span>
+                </div>
+              ) : detailBooking.guest_count > 2 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.85rem",
+                    marginBottom: "4px",
+                    color: "var(--color-warning)",
+                  }}
+                >
+                  <span>
+                    • Phụ thu khách thêm ({detailBooking.guest_count - 2} khách, từ người thứ 3):
+                  </span>
+                  <span>+{money((detailBooking.guest_count - 2) * 100000)}</span>
+                </div>
+              ) : null}
+
+              {Number(detailBooking.discount) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px", color: "var(--color-success)" }}>
+                  <span>• Giảm giá:</span>
+                  <span>-{money(detailBooking.discount)}</span>
+                </div>
+              )}
+
+              {Number(detailBooking.tax) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
+                  <span>• Thuế / Phí dịch vụ:</span>
+                  <span>+{money(detailBooking.tax)}</span>
+                </div>
+              )}
+
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   fontSize: "1.05rem",
                   fontWeight: "bold",
+                  borderTop: "1px dashed var(--color-border)",
+                  paddingTop: "6px",
+                  marginTop: "6px",
                 }}
               >
                 <span>Tổng tiền:</span>

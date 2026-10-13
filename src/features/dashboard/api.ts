@@ -207,16 +207,22 @@ export const usersApi = {
     parseList<{
       id: string;
       email?: string | null;
+      phone?: string | null;
       role: string;
       full_name: string;
+      created_at?: string;
+      avatar_url?: string | null;
     }>(
       (
         await http.get<
           Paginated<{
             id: string;
             email?: string | null;
+            phone?: string | null;
             role: string;
             full_name: string;
+            created_at?: string;
+            avatar_url?: string | null;
           }>
         >("/api/admin/users", { params })
       ).data,

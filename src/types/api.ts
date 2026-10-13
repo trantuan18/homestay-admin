@@ -204,6 +204,17 @@ export interface Booking {
   status: BookingStatus;
   payment_status: PaymentStatus;
   notes?: string | null;
+  host_note?: string | null;
+  price_breakdown?: {
+    room_price?: number;
+    standard_guest_count?: number;
+    extra_guest_count?: number;
+    extra_guest_fee?: number;
+    extra_guest_unit_price?: number;
+    holiday_surcharge?: number;
+    duration_minutes?: number;
+    pricing_rule_name?: string | null;
+  } | null;
   created_at?: string;
   profiles?: Profile | null;
   properties?: {

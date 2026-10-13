@@ -65,6 +65,10 @@ svg {
   --color-text: #f2f5ed;
   --color-muted: #9aa398;
   --color-border: #30372f;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
   --color-sidebar-bg: #0d100d;
   --color-sidebar-text: #f2f5ed;
   --color-sidebar-muted: #b2bcb0;
@@ -72,10 +76,10 @@ svg {
   --color-sidebar-border: #303a30;
   --color-avatar-bg: #303a30;
   --color-avatar-text: #f2f5ed;
-  --color-status-success-bg: #193a29;
-  --color-status-warning-bg: #493716;
-  --color-status-error-bg: #492525;
-  --color-status-info-bg: #1d3048;
+  --color-status-success-bg: rgba(52, 211, 153, 0.15);
+  --color-status-warning-bg: rgba(251, 191, 36, 0.15);
+  --color-status-error-bg: rgba(248, 113, 113, 0.15);
+  --color-status-info-bg: rgba(96, 165, 250, 0.15);
   --color-focus: #c8e83b;
   --color-overlay: rgba(0, 0, 0, 0.72);
   --color-decoration: #29351e;

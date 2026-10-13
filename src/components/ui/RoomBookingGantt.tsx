@@ -32,6 +32,10 @@ export function RoomBookingGantt({
   const { t } = useTranslation();
   const timelineElement = useRef<HTMLDivElement>(null);
   const timeline = useRef<Timeline | null>(null);
+  const bookingsRef = useRef(bookings);
+  bookingsRef.current = bookings;
+  const onSelectBookingRef = useRef(onSelectBooking);
+  onSelectBookingRef.current = onSelectBooking;
 
   const range = useMemo(() => {
     const fromStr = startDate || date || localDate(new Date());
@@ -75,8 +79,8 @@ export function RoomBookingGantt({
             content: label,
             start,
             end,
-            className: `room-gantt-item room-gantt-${booking.status.toLowerCase()}`,
-            title: `${booking.booking_code} · ${booking.guest_name || "Khách"} · ${new Date(booking.start_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })} – ${new Date(booking.end_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })} · ${t(`status.${booking.status}`, booking.status)}`,
+            className: `room-gantt-item room-gantt-${(booking.status || "").toLowerCase()}`,
+            title: `${booking.booking_code || ""} · ${booking.guest_name || "Khách"} · ${new Date(booking.start_at).toLocaleDateString()} – ${new Date(booking.end_at).toLocaleDateString()} · ${t(`status.${booking.status}`, booking.status || "")}`,
           };
         })
         .filter(
@@ -129,11 +133,11 @@ export function RoomBookingGantt({
     });
   }, [range]);
 
+  // Initialize Timeline once when container is mounted
+  const hasRooms = rooms.length > 0;
   useEffect(() => {
     if (!timelineElement.current) return;
     const instance = new Timeline(timelineElement.current, items, groups, {
-      start: range.start,
-      end: range.end,
       moveable: true,
       zoomable: true,
       horizontalScroll: true,
@@ -170,11 +174,23 @@ export function RoomBookingGantt({
       },
     });
 
+    instance.setWindow(range.start, range.end, { animation: false });
+
+    const triggerSelect = (selectedId: string | number | undefined) => {
+      if (!selectedId || !onSelectBookingRef.current) return;
+      const found = bookingsRef.current.find((b) => String(b.id) === String(selectedId));
+      if (found) onSelectBookingRef.current(found);
+    };
+
     instance.on("select", (properties) => {
-      if (properties.items?.length && onSelectBooking) {
-        const selectedId = properties.items[0];
-        const found = bookings.find((b) => b.id === selectedId);
-        if (found) onSelectBooking(found);
+      if (properties.items?.length) {
+        triggerSelect(properties.items[0]);
+      }
+    });
+
+    instance.on("click", (properties) => {
+      if (properties.item) {
+        triggerSelect(properties.item);
       }
     });
 
@@ -183,19 +199,36 @@ export function RoomBookingGantt({
       instance.destroy();
       timeline.current = null;
     };
-  }, [groups, items, range, rooms.length]);
+  }, [hasRooms]);
 
+  // Update items & groups without resetting viewport/zoom
   useEffect(() => {
     if (timeline.current) {
       timeline.current.setData({ items, groups });
     }
   }, [items, groups]);
 
+  // Update height when rooms count changes
   useEffect(() => {
-    timeline.current?.setWindow(range.start, range.end, {
-      animation: { duration: 300, easingFunction: "easeInOutQuad" },
-    });
-  }, [range.start.getTime(), range.end.getTime()]);
+    if (timeline.current) {
+      timeline.current.setOptions({
+        height: Math.max(220, rooms.length * 56 + 70),
+      });
+    }
+  }, [rooms.length]);
+
+  // Update window only when date filter changes
+  const currentDateKey = `${startDate || date || ""}_${endDate || ""}`;
+  const prevDateKey = useRef(currentDateKey);
+
+  useEffect(() => {
+    if (prevDateKey.current !== currentDateKey) {
+      prevDateKey.current = currentDateKey;
+      timeline.current?.setWindow(range.start, range.end, {
+        animation: { duration: 300, easingFunction: "easeInOutQuad" },
+      });
+    }
+  }, [currentDateKey, range]);
 
   return (
     <div

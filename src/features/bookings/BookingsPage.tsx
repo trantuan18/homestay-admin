@@ -50,6 +50,25 @@ const getDefaultBookingForm = () => {
   };
 };
 
+const FORWARD_STATUS_TRANSITIONS: Record<string, string[]> = {
+  PENDING: ["PENDING", "CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["CONFIRMED", "CHECKED_IN", "CANCELLED", "NO_SHOW"],
+  CHECKED_IN: ["CHECKED_IN", "CHECKED_OUT", "CANCELLED"],
+  CHECKED_OUT: ["CHECKED_OUT"],
+  CANCELLED: ["CANCELLED"],
+  EXPIRED: ["EXPIRED"],
+  NO_SHOW: ["NO_SHOW"],
+};
+
+const getAvailableStatusOptions = (currentStatus: string) => {
+  return FORWARD_STATUS_TRANSITIONS[currentStatus] || [currentStatus];
+};
+
+const isStatusTerminal = (status: string) => {
+  const allowed = FORWARD_STATUS_TRANSITIONS[status];
+  return !allowed || allowed.length <= 1;
+};
+
 export function BookingsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -123,28 +142,50 @@ export function BookingsPage() {
   });
 
   const updatePaymentStatus = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
       next,
       amount,
+      currentBookingStatus,
     }: {
       id: string;
       next: "UNPAID" | "PARTIAL" | "PAID" | "FAILED" | "REFUNDED";
       amount?: number;
-    }) =>
-      paymentsApi.record(id, {
+      currentBookingStatus?: string;
+    }) => {
+      const res = await paymentsApi.record(id, {
         payment_status: next,
         amount: next === "PAID" || next === "PARTIAL" ? amount : undefined,
-      }),
+      });
+
+      // If marked as PAID and booking was PENDING, auto confirm
+      if (next === "PAID" && currentBookingStatus === "PENDING") {
+        try {
+          await bookingsApi.updateStatus(id, "CONFIRMED", "Tự động xác nhận sau khi thanh toán");
+        } catch {
+          // Handled or already auto-confirmed by backend
+        }
+      }
+
+      return res;
+    },
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["admin-bookings"] });
       setDetailBooking((current) =>
         current && current.id === variables.id
-          ? { ...current, payment_status: variables.next }
+          ? {
+              ...current,
+              payment_status: variables.next,
+              ...(variables.next === "PAID" && current.status === "PENDING"
+                ? { status: "CONFIRMED" }
+                : {}),
+            }
           : current,
       );
       toast.success(
-        t("payments.saved") || "Đã cập nhật trạng thái thanh toán",
+        variables.next === "PAID" && variables.currentBookingStatus === "PENDING"
+          ? "Đã thanh toán & tự động xác nhận đơn đặt phòng (CONFIRMED)"
+          : (t("payments.saved") || "Đã cập nhật trạng thái thanh toán"),
       );
     },
     onError: (error) =>
@@ -408,7 +449,8 @@ export function BookingsPage() {
                         <select
                           aria-label={t("bookings.changeStatus")}
                           value={b.status}
-                          disabled={updateStatus.isPending}
+                          disabled={updateStatus.isPending || isStatusTerminal(b.status)}
+                          className="status-inline-select"
                           onChange={(event) =>
                             updateStatus.mutate({
                               id: b.id,
@@ -419,15 +461,7 @@ export function BookingsPage() {
                             })
                           }
                         >
-                          {[
-                            "PENDING",
-                            "CONFIRMED",
-                            "CHECKED_IN",
-                            "CHECKED_OUT",
-                            "CANCELLED",
-                            "EXPIRED",
-                            "NO_SHOW",
-                          ].map((value) => (
+                          {getAvailableStatusOptions(b.status).map((value) => (
                             <option key={value} value={value}>
                               {t(`status.${value}`, value)}
                             </option>
@@ -444,6 +478,7 @@ export function BookingsPage() {
                           aria-label="Đổi trạng thái thanh toán"
                           value={b.payment_status}
                           disabled={updatePaymentStatus.isPending}
+                          className="status-inline-select"
                           onChange={(event) => {
                             const next = event.target.value as
                               | "UNPAID"
@@ -470,6 +505,7 @@ export function BookingsPage() {
                               id: b.id,
                               next,
                               amount: payAmount,
+                              currentBookingStatus: b.status,
                             });
                           }}
                         >
@@ -848,7 +884,8 @@ export function BookingsPage() {
                   <select
                     aria-label={t("bookings.changeStatus")}
                     value={detailBooking.status}
-                    disabled={updateStatus.isPending}
+                    disabled={updateStatus.isPending || isStatusTerminal(detailBooking.status)}
+                    className="status-inline-select"
                     onChange={(event) =>
                       updateStatus.mutate({
                         id: detailBooking.id,
@@ -859,15 +896,7 @@ export function BookingsPage() {
                       })
                     }
                   >
-                    {[
-                      "PENDING",
-                      "CONFIRMED",
-                      "CHECKED_IN",
-                      "CHECKED_OUT",
-                      "CANCELLED",
-                      "EXPIRED",
-                      "NO_SHOW",
-                    ].map((value) => (
+                    {getAvailableStatusOptions(detailBooking.status).map((value) => (
                       <option key={value} value={value}>
                         {t(`status.${value}`, value)}
                       </option>
@@ -885,6 +914,7 @@ export function BookingsPage() {
                     aria-label="Đổi trạng thái thanh toán"
                     value={detailBooking.payment_status}
                     disabled={updatePaymentStatus.isPending}
+                    className="status-inline-select"
                     onChange={(event) => {
                       const next = event.target.value as
                         | "UNPAID"
@@ -911,6 +941,7 @@ export function BookingsPage() {
                         id: detailBooking.id,
                         next,
                         amount: payAmount,
+                        currentBookingStatus: detailBooking.status,
                       });
                     }}
                   >
@@ -962,25 +993,90 @@ export function BookingsPage() {
                 paddingTop: "0.75rem",
               }}
             >
-              <p className="muted" style={{ margin: "0 0 6px", fontSize: "0.8rem" }}>
-                Chi tiết giá thanh toán
-              </p>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: "4px" }}>
-                <span>Tạm tính (Subtotal):</span>
-                <span>{new Intl.NumberFormat("vi-VN").format(detailBooking.subtotal || detailBooking.total)} ₫</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <p className="muted" style={{ margin: 0, fontSize: "0.85rem", fontWeight: 600 }}>
+                  Chi tiết các khoản phí
+                </p>
+                {detailBooking.price_breakdown?.pricing_rule_name && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      background: "var(--color-surface)",
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-muted)",
+                    }}
+                  >
+                    {detailBooking.price_breakdown.pricing_rule_name}
+                  </span>
+                )}
               </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: "4px" }}>
+                <span>• Tiền phòng cơ bản:</span>
+                <span>
+                  {new Intl.NumberFormat("vi-VN").format(
+                    detailBooking.price_breakdown?.room_price !== undefined
+                      ? detailBooking.price_breakdown.room_price
+                      : (detailBooking.subtotal || detailBooking.total) -
+                          (detailBooking.price_breakdown?.extra_guest_fee || 0),
+                  )}{" "}
+                  ₫
+                </span>
+              </div>
+
+              {Number(detailBooking.price_breakdown?.extra_guest_fee || 0) > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.9rem",
+                    marginBottom: "4px",
+                    color: "var(--color-warning)",
+                  }}
+                >
+                  <span>
+                    • Phụ thu khách thêm ({detailBooking.price_breakdown?.extra_guest_count} khách, từ người thứ{" "}
+                    {(detailBooking.price_breakdown?.standard_guest_count ?? 2) + 1}):
+                  </span>
+                  <span>
+                    +{new Intl.NumberFormat("vi-VN").format(detailBooking.price_breakdown!.extra_guest_fee!)} ₫
+                  </span>
+                </div>
+              ) : detailBooking.guest_count > 2 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.9rem",
+                    marginBottom: "4px",
+                    color: "var(--color-warning)",
+                  }}
+                >
+                  <span>
+                    • Phụ thu khách thêm ({detailBooking.guest_count - 2} khách, từ người thứ 3):
+                  </span>
+                  <span>
+                    +{new Intl.NumberFormat("vi-VN").format((detailBooking.guest_count - 2) * 100000)} ₫
+                  </span>
+                </div>
+              ) : null}
+
               {Number(detailBooking.discount) > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: "4px", color: "var(--color-success)" }}>
-                  <span>Giảm giá:</span>
+                  <span>• Giảm giá:</span>
                   <span>-{new Intl.NumberFormat("vi-VN").format(detailBooking.discount)} ₫</span>
                 </div>
               )}
+
               {Number(detailBooking.tax) > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: "4px" }}>
-                  <span>Thuế / Phí:</span>
-                  <span>{new Intl.NumberFormat("vi-VN").format(detailBooking.tax)} ₫</span>
+                  <span>• Thuế / Phí dịch vụ:</span>
+                  <span>+{new Intl.NumberFormat("vi-VN").format(detailBooking.tax)} ₫</span>
                 </div>
               )}
+
               <div
                 style={{
                   display: "flex",
@@ -989,7 +1085,7 @@ export function BookingsPage() {
                   fontWeight: "bold",
                   borderTop: "1px dashed var(--color-border)",
                   paddingTop: "6px",
-                  marginTop: "4px",
+                  marginTop: "6px",
                 }}
               >
                 <span>Tổng cộng:</span>

@@ -17,16 +17,31 @@ http.interceptors.request.use((config) => {
   return config;
 });
 let refreshing = false;
-let queue: Array<(token: string) => void> = [];
+let queue: Array<{
+  resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+  config: any;
+}> = [];
+
 const flush = (token: string) => {
-  queue.forEach((resolve) => resolve(token));
+  queue.forEach(({ resolve, config }) => {
+    config.headers.Authorization = `Bearer ${token}`;
+    resolve(http(config));
+  });
   queue = [];
 };
+
+const rejectQueue = (err: unknown) => {
+  queue.forEach(({ reject }) => reject(err));
+  queue = [];
+};
+
 const redirectToLogin = () => {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   if (window.location.pathname !== "/login") window.location.assign("/login");
 };
+
 http.interceptors.response.use(
   (r) => r,
   async (error) => {
@@ -38,26 +53,27 @@ http.interceptors.response.use(
       throw error;
     }
     original._retry = true;
-    if (refreshing)
-      return new Promise((resolve) =>
-        queue.push((token) => {
-          original.headers.Authorization = `Bearer ${token}`;
-          resolve(http(original));
-        }),
-      );
+    if (refreshing) {
+      return new Promise((resolve, reject) => {
+        queue.push({ resolve, reject, config: original });
+      });
+    }
     refreshing = true;
     try {
       const { data } = await axios.post(`${baseURL}/api/auth/refresh`, {
         refresh_token: localStorage.getItem("refresh_token"),
       });
-      localStorage.setItem("access_token", data.session.access_token);
-      if (data.session.refresh_token)
-        localStorage.setItem("refresh_token", data.session.refresh_token);
-      flush(data.session.access_token);
-      original.headers.Authorization = `Bearer ${data.session.access_token}`;
+      const nextAccess = data.session?.access_token || data.access_token;
+      const nextRefresh = data.session?.refresh_token || data.refresh_token;
+      if (!nextAccess) throw new Error("No access token in refresh response");
+      localStorage.setItem("access_token", nextAccess);
+      if (nextRefresh)
+        localStorage.setItem("refresh_token", nextRefresh);
+      flush(nextAccess);
+      original.headers.Authorization = `Bearer ${nextAccess}`;
       return http(original);
     } catch (e) {
-      queue = [];
+      rejectQueue(e);
       redirectToLogin();
       throw e;
     } finally {

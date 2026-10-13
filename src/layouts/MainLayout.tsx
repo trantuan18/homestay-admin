@@ -107,6 +107,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
       await logout();
     } finally {
       localStorage.clear();
+      qc.clear();
       navigate("/login");
     }
   };

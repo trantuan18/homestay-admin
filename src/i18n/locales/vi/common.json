@@ -217,8 +217,32 @@
   },
   "users": {
     "changeRole": "Chọn vai trò người dùng",
-    "roleSaved": "Đã cập nhật vai trò.",
-    "roleError": "Không thể cập nhật vai trò."
+    "roleSaved": "Đã cập nhật vai trò người dùng.",
+    "roleError": "Không thể cập nhật vai trò người dùng.",
+    "cannotChangeOwnRole": "Bạn không thể tự thay đổi vai trò của chính mình.",
+    "totalUsers": "Tổng người dùng",
+    "adminStaff": "Quản trị & Nhân viên",
+    "hosts": "Chủ homestay",
+    "customers": "Khách hàng",
+    "joinedAt": "Ngày tham gia",
+    "phone": "Số điện thoại",
+    "you": "Bạn",
+    "allRoles": "Tất cả vai trò"
+  },
+  "analytics": {
+    "totalRevenue": "Tổng doanh thu",
+    "totalBookings": "Tổng đặt phòng",
+    "averageBookingValue": "Giá trị trung bình / đơn",
+    "cancelledRate": "Tỷ lệ hủy",
+    "confirmedBookings": "Đã xác nhận",
+    "propertyPerformance": "Hiệu suất theo cơ sở",
+    "roomPerformance": "Top phòng doanh thu cao nhất",
+    "contribution": "Tỷ trọng",
+    "allProperties": "Tất cả cơ sở",
+    "preset7d": "7 ngày qua",
+    "preset30d": "30 ngày qua",
+    "presetThisMonth": "Tháng này",
+    "presetLastMonth": "Tháng trước"
   },
   "form": {
     "name": "Tên",
