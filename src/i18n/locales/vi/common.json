@@ -227,7 +227,10 @@
     "joinedAt": "Ngày tham gia",
     "phone": "Số điện thoại",
     "you": "Bạn",
-    "allRoles": "Tất cả vai trò"
+    "allRoles": "Tất cả vai trò",
+    "createUser": "Tạo tài khoản",
+    "createSuccess": "Đã tạo tài khoản thành công.",
+    "createError": "Không thể tạo tài khoản."
   },
   "analytics": {
     "totalRevenue": "Tổng doanh thu",

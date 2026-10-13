@@ -227,6 +227,27 @@ export const usersApi = {
         >("/api/admin/users", { params })
       ).data,
     ),
+  create: async (payload: {
+    email: string;
+    password: string;
+    full_name?: string;
+    phone?: string;
+    role?: "CUSTOMER" | "HOST" | "STAFF" | "ADMIN" | "SUPER_ADMIN";
+  }) =>
+    (
+      await http.post<{
+        success: boolean;
+        message?: string;
+        data: {
+          id: string;
+          email: string;
+          full_name: string;
+          phone?: string | null;
+          role: string;
+          created_at: string;
+        };
+      }>("/api/admin/users", payload)
+    ).data,
   updateRole: async (
     id: string,
     role: "CUSTOMER" | "HOST" | "STAFF" | "ADMIN" | "SUPER_ADMIN",

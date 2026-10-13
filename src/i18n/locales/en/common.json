@@ -218,7 +218,10 @@
   "users": {
     "changeRole": "Select user role",
     "roleSaved": "User role updated.",
-    "roleError": "Unable to update user role."
+    "roleError": "Unable to update user role.",
+    "createUser": "Create account",
+    "createSuccess": "User account created successfully.",
+    "createError": "Unable to create account."
   },
   "form": {
     "name": "Name",
