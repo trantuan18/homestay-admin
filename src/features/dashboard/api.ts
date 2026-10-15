@@ -181,6 +181,17 @@ export const bookingsApi = {
 
     throw lastError;
   },
+  updateCleaningStatus: async (
+    id: string,
+    cleaning_status: "UNCLEANED" | "CLEANED",
+  ) => {
+    return (
+      await http.patch<{ success: boolean; data: { id: string; cleaning_status: string } }>(
+        `/api/admin/bookings/${id}/cleaning-status`,
+        { cleaning_status },
+      )
+    ).data;
+  },
 };
 export const paymentsApi = {
   list: async (bookingId: string) =>
@@ -433,7 +444,7 @@ export const pricingPlansApi = {
     return res.data?.data;
   },
   delete: async (id: string) => {
-    return (await http.delete(`/api/admin/pricing-plans/${id}`)).data;
+    return (await http.delete(`/api/admin/pricing-plans/${id}`, { data: {} })).data;
   },
 };
 

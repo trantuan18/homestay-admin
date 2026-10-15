@@ -121,6 +121,7 @@
     "name": "Name",
     "city": "City",
     "rooms": "Rooms",
+    "room": "Room",
     "role": "Role",
     "timezone": "Timezone",
     "capacity": "Capacity",

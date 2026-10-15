@@ -1,12 +1,16 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { dashboardApi, bookingsApi, propertiesApi, roomsApi } from "./api";
+import toast from "react-hot-toast";
+import { CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { dashboardApi, bookingsApi, propertiesApi, roomsApi, paymentsApi } from "./api";
+import { apiError } from "../../services/http";
 import { Loading } from "../../components/ui/Loading";
 import { ErrorState } from "../../components/ui/ErrorState";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Modal } from "../../components/ui/Modal";
 import { RoomBookingGantt } from "../../components/ui/RoomBookingGantt";
+import { BookingReceiptModal } from "../bookings/BookingReceiptModal";
 import type { Booking } from "../../types/api";
 
 const money = (n: number) =>
@@ -41,6 +45,8 @@ export function DashboardPage() {
   const [search, setSearch] = useState("");
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+  const [receiptBooking, setReceiptBooking] = useState<Booking | null>(null);
+  const qc = useQueryClient();
 
   // Quick preset helper
   const handlePreset = (preset: "today" | "next7days" | "thisMonth") => {
@@ -135,6 +141,119 @@ export function DashboardPage() {
         ...(propertyId ? { property_id: propertyId } : {}),
       }),
     staleTime: 30_000,
+  });
+
+  const getStatusReason = (nextStatus: string) => {
+    if (nextStatus === "CANCELLED") return "Booking cancelled by admin";
+    if (nextStatus === "NO_SHOW") return "Guest no-show";
+    if (nextStatus === "EXPIRED") return "Booking expired";
+    if (nextStatus === "CHECKED_IN") return "Checked in";
+    if (nextStatus === "CHECKED_OUT") return "Checked out";
+    return "Admin status update";
+  };
+
+  const updateStatus = useMutation({
+    mutationFn: ({
+      id,
+      next,
+      reason,
+    }: {
+      id: string;
+      next: Parameters<typeof bookingsApi.updateStatus>[1];
+      reason?: string;
+    }) => bookingsApi.updateStatus(id, next, reason ?? getStatusReason(next)),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin-booking-chart"] });
+      qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["admin-bookings"] });
+      setDetailBooking((current) =>
+        current && current.id === variables.id
+          ? { ...current, status: variables.next }
+          : current,
+      );
+      toast.success(t("bookings.statusSaved", "Đã cập nhật trạng thái đơn"));
+    },
+    onError: (error) =>
+      toast.error(`${t("bookings.statusError", "Lỗi cập nhật trạng thái:")} ${apiError(error)}`),
+  });
+
+  const updatePaymentStatus = useMutation({
+    mutationFn: async ({
+      id,
+      next,
+      amount,
+      currentBookingStatus,
+    }: {
+      id: string;
+      next: "UNPAID" | "PARTIAL" | "PAID" | "FAILED" | "REFUNDED";
+      amount?: number;
+      currentBookingStatus?: string;
+    }) => {
+      const res = await paymentsApi.record(id, {
+        payment_status: next,
+        amount: next === "PAID" || next === "PARTIAL" ? amount : undefined,
+      });
+
+      if (next === "PAID" && currentBookingStatus === "PENDING") {
+        try {
+          await bookingsApi.updateStatus(id, "CONFIRMED", "Tự động xác nhận sau khi thanh toán");
+        } catch {
+          // Handled or already auto-confirmed
+        }
+      }
+
+      return res;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin-booking-chart"] });
+      qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["admin-bookings"] });
+      setDetailBooking((current) =>
+        current && current.id === variables.id
+          ? {
+              ...current,
+              payment_status: variables.next,
+              ...(variables.next === "PAID" && current.status === "PENDING"
+                ? { status: "CONFIRMED" }
+                : {}),
+            }
+          : current,
+      );
+      toast.success(
+        variables.next === "PAID" && variables.currentBookingStatus === "PENDING"
+          ? "Đã thanh toán & tự động xác nhận đơn đặt phòng"
+          : "Đã cập nhật trạng thái thanh toán",
+      );
+    },
+    onError: (error) =>
+      toast.error(`Lỗi cập nhật thanh toán: ${apiError(error)}`),
+  });
+
+  const updateCleaningStatus = useMutation({
+    mutationFn: ({
+      id,
+      cleaning_status,
+    }: {
+      id: string;
+      cleaning_status: "UNCLEANED" | "CLEANED";
+    }) => bookingsApi.updateCleaningStatus(id, cleaning_status),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin-booking-chart"] });
+      qc.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["admin-bookings"] });
+      setDetailBooking((current) =>
+        current && current.id === variables.id
+          ? { ...current, cleaning_status: variables.cleaning_status }
+          : current,
+      );
+      toast.success(
+        variables.cleaning_status === "CLEANED"
+          ? "Đã đánh dấu ĐÃ DỌN PHÒNG"
+          : "Đã đánh dấu CHƯA DỌN PHÒNG",
+      );
+    },
+    onError: (error) =>
+      toast.error(`Lỗi cập nhật dọn phòng: ${apiError(error)}`),
   });
 
   const visibleRooms = useMemo(
@@ -503,34 +622,191 @@ export function DashboardPage() {
             : ""
         }
         footer={
-          <button className="primary" onClick={() => setDetailBooking(null)}>
-            Đóng
-          </button>
+          detailBooking ? (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setReceiptBooking(detailBooking)}
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                <FileText size={16} /> Xuất biên lai
+              </button>
+              <button className="ghost" onClick={() => setDetailBooking(null)}>
+                Đóng
+              </button>
+            </div>
+          ) : (
+            <button className="primary" onClick={() => setDetailBooking(null)}>
+              Đóng
+            </button>
+          )
         }
       >
         {detailBooking && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1rem",
-                padding: "0.75rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                padding: "14px",
                 background: "var(--color-surface-2)",
-                borderRadius: "8px",
+                borderRadius: "10px",
+                border: "1px solid var(--color-border)",
               }}
             >
-              <div>
-                <p className="muted" style={{ margin: "0 0 4px", fontSize: "0.8rem" }}>
+              {/* 1. Trạng thái đơn */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  paddingBottom: "8px",
+                  borderBottom: "1px solid var(--color-border)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "110px" }}>
                   Trạng thái đơn
-                </p>
-                <StatusBadge status={detailBooking.status} />
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <StatusBadge status={detailBooking.status} />
+                  <select
+                    aria-label="Đổi trạng thái đơn"
+                    value={detailBooking.status}
+                    disabled={updateStatus.isPending}
+                    className="status-inline-select"
+                    onChange={(event) =>
+                      updateStatus.mutate({
+                        id: detailBooking.id,
+                        next: event.target.value as Parameters<typeof bookingsApi.updateStatus>[1],
+                      })
+                    }
+                  >
+                    {[
+                      "PENDING",
+                      "CONFIRMED",
+                      "CHECKED_IN",
+                      "CHECKED_OUT",
+                      "CANCELLED",
+                      "NO_SHOW",
+                    ].map((value) => (
+                      <option key={value} value={value}>
+                        {t(`status.${value}`, value)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <p className="muted" style={{ margin: "0 0 4px", fontSize: "0.8rem" }}>
+
+              {/* 2. Thanh toán */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  paddingBottom: "8px",
+                  borderBottom: "1px solid var(--color-border)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "110px" }}>
                   Thanh toán
-                </p>
-                <StatusBadge status={detailBooking.payment_status} />
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <StatusBadge status={detailBooking.payment_status} />
+                  <select
+                    aria-label="Đổi trạng thái thanh toán"
+                    value={detailBooking.payment_status}
+                    disabled={updatePaymentStatus.isPending}
+                    className="status-inline-select"
+                    onChange={(event) => {
+                      const next = event.target.value as
+                        | "UNPAID"
+                        | "PARTIAL"
+                        | "PAID"
+                        | "FAILED"
+                        | "REFUNDED";
+                      if (next === detailBooking.payment_status) return;
+                      let payAmount: number | undefined = detailBooking.total;
+                      if (next === "PARTIAL") {
+                        const input = window.prompt(
+                          "Nhập số tiền đã thanh toán (₫):",
+                          String(Math.round(detailBooking.total / 2)),
+                        );
+                        if (input === null) return;
+                        const num = Number(input.replace(/[^0-9]/g, ""));
+                        if (!num || num <= 0) {
+                          toast.error("Số tiền không hợp lệ");
+                          return;
+                        }
+                        payAmount = num;
+                      }
+                      updatePaymentStatus.mutate({
+                        id: detailBooking.id,
+                        next,
+                        amount: payAmount,
+                        currentBookingStatus: detailBooking.status,
+                      });
+                    }}
+                  >
+                    {["UNPAID", "PARTIAL", "PAID", "REFUNDED", "FAILED"].map((value) => (
+                      <option key={value} value={value}>
+                        {t(`status.${value}`, value)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 3. Dọn phòng */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "110px" }}>
+                  Dọn phòng
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  {detailBooking.cleaning_status === "CLEANED" ? (
+                    <span
+                      className="badge badge-success"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <CheckCircle2 size={13} /> Đã dọn
+                    </span>
+                  ) : (
+                    <span
+                      className="badge badge-warning"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <AlertCircle size={13} /> Chưa dọn
+                    </span>
+                  )}
+                  <select
+                    aria-label="Cập nhật trạng thái dọn phòng"
+                    value={detailBooking.cleaning_status || "UNCLEANED"}
+                    disabled={updateCleaningStatus.isPending}
+                    className="status-inline-select"
+                    onChange={(event) =>
+                      updateCleaningStatus.mutate({
+                        id: detailBooking.id,
+                        cleaning_status: event.target.value as "UNCLEANED" | "CLEANED",
+                      })
+                    }
+                  >
+                    <option value="UNCLEANED">Chưa dọn</option>
+                    <option value="CLEANED">Đã dọn</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -659,6 +935,14 @@ export function DashboardPage() {
           </div>
         )}
       </Modal>
+
+      {/* BOOKING RECEIPT MODAL */}
+      {receiptBooking && (
+        <BookingReceiptModal
+          booking={receiptBooking}
+          onClose={() => setReceiptBooking(null)}
+        />
+      )}
     </>
   );
 }

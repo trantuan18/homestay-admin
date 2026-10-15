@@ -40,6 +40,7 @@ const defaultFormData: Partial<PricingPlan> = {
   standard_guest_count: 2,
   extra_guest_fee: 100000,
   holiday_surcharge: 100000,
+  flexible_rate_percent: 0,
 };
 
 const formatVND = (num?: number) =>
@@ -208,6 +209,29 @@ export function PricingPlansPage() {
                         >
                           Đặt làm mặc định
                         </button>
+                      )}
+                      {plan.flexible_rate_percent !== undefined && plan.flexible_rate_percent !== 0 ? (
+                        <span
+                          className={`badge ${plan.flexible_rate_percent > 0 ? "badge-success" : "badge-warning"}`}
+                          style={{ fontWeight: 600, fontSize: "12px" }}
+                          title="Giá linh hoạt điều chỉnh theo %"
+                        >
+                          {plan.flexible_rate_percent > 0
+                            ? `Giá linh hoạt: +${plan.flexible_rate_percent}%`
+                            : `Giá linh hoạt: ${plan.flexible_rate_percent}%`}
+                        </span>
+                      ) : (
+                        <span
+                          className="badge"
+                          style={{
+                            fontWeight: 500,
+                            fontSize: "12px",
+                            opacity: 0.7,
+                            background: "var(--color-surface-2)",
+                          }}
+                        >
+                          Giá linh hoạt: 0%
+                        </span>
                       )}
                     </div>
                     {plan.description && (
@@ -411,9 +435,23 @@ export function PricingPlansPage() {
               {t("common.cancel", "Hủy")}
             </button>
             <button
+              type="button"
               className="primary"
-              form="pricing-plan-form"
               disabled={saveMutation.isPending}
+              onClick={() => {
+                const form = document.getElementById("pricing-plan-form") as HTMLFormElement;
+                if (form) {
+                  if (!form.checkValidity()) {
+                    form.reportValidity();
+                    return;
+                  }
+                  if (!formData.name?.trim()) {
+                    toast.error("Vui lòng nhập tên bảng giá");
+                    return;
+                  }
+                  saveMutation.mutate(formData);
+                }
+              }}
             >
               {saveMutation.isPending ? t("common.loading", "Đang lưu...") : t("common.save", "Lưu bảng giá")}
             </button>
@@ -453,6 +491,38 @@ export function PricingPlansPage() {
               placeholder="Ghi chú thêm về bảng giá"
             />
           </label>
+          <div
+            className="span-2"
+            style={{
+              background: "var(--color-surface-2)",
+              padding: "12px 14px",
+              borderRadius: "8px",
+              border: "1px dashed var(--color-border)",
+            }}
+          >
+            <label style={{ margin: 0 }}>
+              <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
+                ⚡ Giá linh hoạt (% Tăng hoặc Giảm):
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "6px" }}>
+                <input
+                  type="number"
+                  step="1"
+                  min="-100"
+                  max="500"
+                  value={formData.flexible_rate_percent ?? 0}
+                  onChange={(e) =>
+                    setFormData({ ...formData, flexible_rate_percent: Number(e.target.value) })
+                  }
+                  style={{ width: "120px", fontWeight: "bold" }}
+                />
+                <span style={{ fontWeight: 600, fontSize: "15px" }}>%</span>
+                <span className="muted" style={{ fontSize: "12px", lineHeight: "1.4" }}>
+                  (Nhập số dương như <b>10</b> để tăng 10% giá, nhập số âm như <b>-15</b> để giảm 15% mùa khuyến mãi. Nhập <b>0</b> để giữ nguyên.)
+                </span>
+              </div>
+            </label>
+          </div>
           <label className="span-2" style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
             <input
               type="checkbox"

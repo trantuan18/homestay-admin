@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
-import { Plus, Eye } from "lucide-react";
+import { Plus, Eye, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { BookingReceiptModal } from "./BookingReceiptModal";
 import {
   bookingsApi,
   paymentsApi,
@@ -80,6 +81,7 @@ export function BookingsPage() {
   const [to, setTo] = useState(getTomorrowStr);
   const [createOpen, setCreateOpen] = useState(false);
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+  const [receiptBooking, setReceiptBooking] = useState<Booking | null>(null);
   const [bookingForm, setBookingForm] = useState(getDefaultBookingForm);
 
   useEffect(() => {
@@ -191,32 +193,85 @@ export function BookingsPage() {
     onError: (error) =>
       toast.error(`${t("payments.saveError") || "Lỗi lưu thanh toán:"} ${apiError(error)}`),
   });
+
+  const updateCleaningStatus = useMutation({
+    mutationFn: ({
+      id,
+      cleaning_status,
+    }: {
+      id: string;
+      cleaning_status: "UNCLEANED" | "CLEANED";
+    }) => bookingsApi.updateCleaningStatus(id, cleaning_status),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin-bookings"] });
+      setDetailBooking((current) =>
+        current && current.id === variables.id
+          ? { ...current, cleaning_status: variables.cleaning_status }
+          : current,
+      );
+      toast.success(
+        variables.cleaning_status === "CLEANED"
+          ? "Đã đánh dấu ĐÃ DỌN PHÒNG"
+          : "Đã đánh dấu CHƯA DỌN PHÒNG",
+      );
+    },
+    onError: (error) =>
+      toast.error(`Lỗi cập nhật dọn phòng: ${apiError(error)}`),
+  });
   const properties = useQuery({
     queryKey: ["admin-properties-for-booking"],
     queryFn: () => propertiesApi.list({ offset: 0, limit: 100, status: "ACTIVE" }),
-    enabled: createOpen,
+    staleTime: 60_000,
   });
-  const rooms = useQuery({
-    queryKey: ["admin-rooms-for-booking", bookingForm.property_id],
+  const allRooms = useQuery({
+    queryKey: ["admin-all-rooms-for-booking"],
     queryFn: () =>
       roomsApi.list({
         offset: 0,
         limit: 100,
-        property_id: bookingForm.property_id,
         status: "AVAILABLE",
       }),
-    enabled: createOpen && Boolean(bookingForm.property_id),
+    staleTime: 60_000,
   });
 
+  const availableRooms = useMemo(() => {
+    if (!bookingForm.property_id) return [];
+    return (allRooms.data?.data || []).filter(
+      (room) => room.property_id === bookingForm.property_id,
+    );
+  }, [allRooms.data?.data, bookingForm.property_id]);
+
   useEffect(() => {
-    if (!bookingForm.property_id || !rooms.data?.data?.length) return;
+    if (!createOpen) return;
+    if (!bookingForm.property_id && properties.data?.data?.length) {
+      const firstProp =
+        properties.data.data.find((p) => p.status === "ACTIVE") ||
+        properties.data.data[0];
+      if (firstProp) {
+        const firstRoom = (allRooms.data?.data || []).find(
+          (r) => r.property_id === firstProp.id,
+        );
+        setBookingForm((prev) => ({
+          ...prev,
+          property_id: firstProp.id,
+          room_id: firstRoom ? firstRoom.id : prev.room_id,
+        }));
+      }
+    }
+  }, [createOpen, properties.data, allRooms.data, bookingForm.property_id]);
+
+  useEffect(() => {
+    if (!bookingForm.property_id || !availableRooms.length) return;
     setBookingForm((current) => {
-      if (!current.room_id && rooms.data.data[0]) {
-        return { ...current, room_id: rooms.data.data[0].id };
+      if (
+        !current.room_id ||
+        !availableRooms.some((r) => r.id === current.room_id)
+      ) {
+        return { ...current, room_id: availableRooms[0].id };
       }
       return current;
     });
-  }, [bookingForm.property_id, rooms.data]);
+  }, [bookingForm.property_id, availableRooms]);
 
   const selectedProperty = properties.data?.data.find(
     (property) => property.id === bookingForm.property_id,
@@ -427,6 +482,7 @@ export function BookingsPage() {
                 <th>{t("table.guest")}</th>
                 <th>{t("table.time")}</th>
                 <th>{t("common.status")}</th>
+                <th>Dọn phòng</th>
                 <th>{t("table.payment")}</th>
                 <th>{t("table.total")}</th>
                 <th>{t("common.actions")}</th>
@@ -466,6 +522,42 @@ export function BookingsPage() {
                               {t(`status.${value}`, value)}
                             </option>
                           ))}
+                        </select>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <div>
+                          {b.cleaning_status === "CLEANED" ? (
+                            <span
+                              className="badge badge-success"
+                              style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px", fontWeight: 600 }}
+                            >
+                              <CheckCircle2 size={12} /> Đã dọn
+                            </span>
+                          ) : (
+                            <span
+                              className="badge badge-warning"
+                              style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px", fontWeight: 600 }}
+                            >
+                              <AlertCircle size={12} /> Chưa dọn
+                            </span>
+                          )}
+                        </div>
+                        <select
+                          aria-label="Đổi trạng thái dọn phòng"
+                          value={b.cleaning_status || "UNCLEANED"}
+                          disabled={updateCleaningStatus.isPending}
+                          className="status-inline-select"
+                          onChange={(event) =>
+                            updateCleaningStatus.mutate({
+                              id: b.id,
+                              cleaning_status: event.target.value as "UNCLEANED" | "CLEANED",
+                            })
+                          }
+                        >
+                          <option value="UNCLEANED">Chưa dọn</option>
+                          <option value="CLEANED">Đã dọn</option>
                         </select>
                       </div>
                     </td>
@@ -525,19 +617,29 @@ export function BookingsPage() {
                     </td>
                     <td>{new Intl.NumberFormat("vi-VN").format(b.total)} ₫</td>
                     <td>
-                      <button
-                        className="ghost icon-btn"
-                        onClick={() => setDetailBooking(b)}
-                        title={t("common.viewAll")}
-                      >
-                        <Eye size={15} />
-                      </button>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          className="ghost icon-btn"
+                          onClick={() => setDetailBooking(b)}
+                          title={t("common.viewAll")}
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          className="ghost icon-btn"
+                          onClick={() => setReceiptBooking(b)}
+                          title="Xuất biên lai"
+                          style={{ color: "var(--color-primary)" }}
+                        >
+                          <FileText size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="empty-cell">
+                  <td colSpan={8} className="empty-cell">
                     {t("common.empty")}
                   </td>
                 </tr>
@@ -566,16 +668,15 @@ export function BookingsPage() {
           </>
         }
       >
-        {properties.isLoading ||
-        (Boolean(bookingForm.property_id) && rooms.isLoading) ? (
+        {properties.isLoading || allRooms.isLoading ? (
           <Loading />
         ) : properties.isError ? (
           <ErrorState
             error={properties.error}
             onRetry={() => properties.refetch()}
           />
-        ) : bookingForm.property_id && rooms.isError ? (
-          <ErrorState error={rooms.error} onRetry={() => rooms.refetch()} />
+        ) : allRooms.isError ? (
+          <ErrorState error={allRooms.error} onRetry={() => allRooms.refetch()} />
         ) : (
           <form
             id="booking-create-form"
@@ -586,13 +687,17 @@ export function BookingsPage() {
               <span>{t("form.property")}</span>
               <select
                 value={bookingForm.property_id}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextPropId = event.target.value;
+                  const nextRooms = (allRooms.data?.data || []).filter(
+                    (room) => room.property_id === nextPropId,
+                  );
                   setBookingForm({
                     ...bookingForm,
-                    property_id: event.target.value,
-                    room_id: "",
-                  })
-                }
+                    property_id: nextPropId,
+                    room_id: nextRooms[0]?.id || "",
+                  });
+                }}
               >
                 <option value="">{t("form.selectProperty")}</option>
                 {(properties.data?.data || [])
@@ -605,10 +710,10 @@ export function BookingsPage() {
               </select>
             </label>
             <label>
-              <span>{t("table.room")}</span>
+              <span>{t("table.room", "Phòng")}</span>
               <select
                 value={bookingForm.room_id}
-                disabled={!bookingForm.property_id || rooms.isLoading}
+                disabled={!bookingForm.property_id || allRooms.isLoading}
                 onChange={(event) =>
                   setBookingForm({
                     ...bookingForm,
@@ -616,8 +721,8 @@ export function BookingsPage() {
                   })
                 }
               >
-                <option value="">{t("bookings.selectRoom")}</option>
-                {(rooms.data?.data || []).map((room) => (
+                <option value="">{t("bookings.selectRoom", "Chọn phòng")}</option>
+                {availableRooms.map((room) => (
                   <option key={room.id} value={room.id}>
                     {room.name}
                   </option>
@@ -858,27 +963,48 @@ export function BookingsPage() {
             : ""
         }
         footer={
-          <button className="primary" onClick={() => setDetailBooking(null)}>
-            {t("common.cancel")}
-          </button>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setReceiptBooking(detailBooking)}
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              <FileText size={16} /> Xuất biên lai
+            </button>
+            <button className="ghost" onClick={() => setDetailBooking(null)}>
+              {t("common.cancel")}
+            </button>
+          </div>
         }
       >
         {detailBooking && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "1rem",
-                padding: "0.75rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                padding: "14px",
                 background: "var(--color-surface-2)",
-                borderRadius: "8px",
+                borderRadius: "10px",
+                border: "1px solid var(--color-border)",
               }}
             >
-              <div>
-                <p className="muted" style={{ margin: "0 0 4px", fontSize: "0.8rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  paddingBottom: "8px",
+                  borderBottom: "1px solid var(--color-border)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "110px" }}>
                   Trạng thái đơn
-                </p>
+                </span>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                   <StatusBadge status={detailBooking.status} />
                   <select
@@ -904,10 +1030,20 @@ export function BookingsPage() {
                   </select>
                 </div>
               </div>
-              <div>
-                <p className="muted" style={{ margin: "0 0 4px", fontSize: "0.8rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  paddingBottom: "8px",
+                  borderBottom: "1px solid var(--color-border)",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "110px" }}>
                   Thanh toán
-                </p>
+                </span>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                   <StatusBadge status={detailBooking.payment_status} />
                   <select
@@ -956,6 +1092,51 @@ export function BookingsPage() {
                         {t(`status.${value}`, value)}
                       </option>
                     ))}
+                  </select>
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "110px" }}>
+                  Dọn phòng
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  {detailBooking.cleaning_status === "CLEANED" ? (
+                    <span
+                      className="badge badge-success"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <CheckCircle2 size={13} /> Đã dọn phòng
+                    </span>
+                  ) : (
+                    <span
+                      className="badge badge-warning"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <AlertCircle size={13} /> Chưa dọn phòng
+                    </span>
+                  )}
+                  <select
+                    aria-label="Cập nhật trạng thái dọn phòng"
+                    value={detailBooking.cleaning_status || "UNCLEANED"}
+                    disabled={updateCleaningStatus.isPending}
+                    className="status-inline-select"
+                    onChange={(event) =>
+                      updateCleaningStatus.mutate({
+                        id: detailBooking.id,
+                        cleaning_status: event.target.value as "UNCLEANED" | "CLEANED",
+                      })
+                    }
+                  >
+                    <option value="UNCLEANED">Chưa dọn</option>
+                    <option value="CLEANED">Đã dọn</option>
                   </select>
                 </div>
               </div>
@@ -1106,6 +1287,14 @@ export function BookingsPage() {
           </div>
         )}
       </Modal>
+
+      {/* BOOKING RECEIPT MODAL */}
+      {receiptBooking && (
+        <BookingReceiptModal
+          booking={receiptBooking}
+          onClose={() => setReceiptBooking(null)}
+        />
+      )}
     </>
   );
 }

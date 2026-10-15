@@ -121,6 +121,7 @@
     "name": "Tên",
     "city": "Thành phố",
     "rooms": "Phòng",
+    "room": "Phòng",
     "role": "Role",
     "timezone": "Múi giờ",
     "capacity": "Sức chứa",

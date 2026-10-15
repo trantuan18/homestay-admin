@@ -13,6 +13,7 @@ export type PaymentStatus =
   | "PAID"
   | "REFUNDED"
   | "FAILED";
+export type CleaningStatus = "UNCLEANED" | "CLEANED";
 export interface Profile {
   id: string;
   full_name: string;
@@ -77,6 +78,7 @@ export interface PricingPlan {
   standard_guest_count: number;
   extra_guest_fee: number;
   holiday_surcharge: number;
+  flexible_rate_percent?: number;
   created_at: string;
   updated_at: string;
 }
@@ -203,6 +205,7 @@ export interface Booking {
   currency: string;
   status: BookingStatus;
   payment_status: PaymentStatus;
+  cleaning_status?: CleaningStatus;
   notes?: string | null;
   host_note?: string | null;
   price_breakdown?: {
