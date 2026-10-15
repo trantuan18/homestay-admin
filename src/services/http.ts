@@ -1,7 +1,7 @@
 import axios from "axios";
 const baseURL = import.meta.env.DEV
   ? ""
-  : import.meta.env.VITE_API_URL || "http://localhost:3000";
+  : import.meta.env.VITE_API_URL || "https://homstay-server.onrender.com";
 export const http = axios.create({
   baseURL,
   timeout: 15000,
