@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { Printer, X, CheckCircle2, Clock, MapPin, Phone, User, QrCode, Copy, Check, ShieldCheck, Building2 } from "lucide-react";
 import type { Booking } from "../../types/api";
+import { formatVND } from "../../utils/format";
 
 interface Props {
   booking: Booking | null;
   onClose: () => void;
 }
-
-const formatVND = (num?: number) =>
-  new Intl.NumberFormat("vi-VN").format(num ?? 0) + " ₫";
 
 export function BookingReceiptModal({ booking, onClose }: Props) {
   const [copiedField, setCopiedField] = useState<string | null>(null);

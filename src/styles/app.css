@@ -1960,3 +1960,72 @@ button {
 }
 
 
+
+/* Dark theme adjustments for Recharts */
+.dark .recharts-cartesian-grid line {
+  stroke: var(--color-border);
+}
+.dark .recharts-text {
+  fill: var(--color-muted);
+}
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+.dark .recharts-legend-item-text {
+  color: var(--color-text) !important;
+}
+.dark .recharts-bar-rectangle .recharts-rectangle[name="confirmed"],
+.recharts-bar-rectangle .recharts-rectangle[name="Đã xác nhận"] {
+  fill: var(--color-success);
+}
+.dark .recharts-bar-rectangle .recharts-rectangle[name="pending"],
+.recharts-bar-rectangle .recharts-rectangle[name="Chờ xử lý"] {
+  fill: var(--color-warning);
+}
+.dark .recharts-bar-rectangle .recharts-rectangle[name="completed"],
+.recharts-bar-rectangle .recharts-rectangle[name="Đã hoàn tất"] {
+  fill: var(--color-primary);
+}
+.dark .recharts-bar-rectangle .recharts-rectangle[name="cancelled"],
+.recharts-bar-rectangle .recharts-rectangle[name="Đã hủy / hết hạn"] {
+  fill: var(--color-error);
+}
+
+/* Dark theme badge fixes */
+.dark .badge {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+.dark .badge-success {
+  background: var(--color-status-success-bg);
+  color: var(--color-success);
+}
+.dark .badge-warning {
+  background: var(--color-status-warning-bg);
+  color: var(--color-warning);
+}
+
+/* Booking date filter label for dark mode */
+.dark .booking-date-filter span {
+  color: var(--color-muted);
+}
+.dark .booking-date-filter input {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+/* Toolbar select dark mode */
+.dark .toolbar select {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+/* Notification badge dark mode */
+.dark .notif-wrapper .icon-btn span {
+  background: var(--color-error);
+}

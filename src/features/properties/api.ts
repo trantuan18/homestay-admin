@@ -42,7 +42,7 @@ const normalizeList = (response: unknown): Paginated<Property> => {
   };
 };
 
-export const propertiesCrudApi = {
+export const propertiesApi = {
   list: async (params: Record<string, unknown> = {}) =>
     normalizeList(
       (await http.get<unknown>("/api/admin/properties", { params })).data,
@@ -56,3 +56,5 @@ export const propertiesCrudApi = {
   remove: async (id: string) =>
     ensureSuccessful((await http.delete(`/api/admin/properties/${id}`)).data),
 };
+
+export const propertiesCrudApi = propertiesApi;

@@ -64,7 +64,7 @@ export function BookingChart({
     if (daily?.length) {
       return daily.map((row) => ({
         key: row.date,
-        label: new Date(row.date).toLocaleDateString(undefined, {
+        label: new Date(row.date).toLocaleDateString("vi-VN", {
           day: "2-digit",
           month: "2-digit",
         }),
@@ -88,7 +88,7 @@ export function BookingChart({
       d.setDate(now.getDate() - (days - 1 - i));
       return {
         key: d.toISOString().slice(0, 10),
-        label: d.toLocaleDateString(undefined, {
+        label: d.toLocaleDateString("vi-VN", {
           day: "2-digit",
           month: "2-digit",
         }),

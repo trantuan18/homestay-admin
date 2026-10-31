@@ -7,7 +7,7 @@ interface UIState {
 }
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
-  dark: false,
+  dark: true,
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   toggleDark: () => set((s) => ({ dark: !s.dark })),
 }));

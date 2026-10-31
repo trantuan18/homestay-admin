@@ -66,6 +66,7 @@ export interface PricingPlan {
   hourly_first_price: number;
   hourly_next_price: number;
   combo_4h_price: number;
+  combo_6h_price: number;
   combo_8h_price: number;
   overnight_check_in: string;
   overnight_check_out: string;

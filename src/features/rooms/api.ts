@@ -90,3 +90,5 @@ export const roomsCrudApi = {
     }
   },
 };
+
+export const roomsApi = roomsCrudApi;

@@ -25,17 +25,18 @@ const defaultFormData: Partial<PricingPlan> = {
   description: "",
   is_default: false,
   hourly_first_hours: 2,
-  hourly_first_price: 249000,
+  hourly_first_price: 259000,
   hourly_next_price: 69000,
   combo_4h_price: 359000,
-  combo_8h_price: 489000,
+  combo_6h_price: 416000,
+  combo_8h_price: 479000,
   overnight_check_in: "22:00",
   overnight_check_out: "09:00",
-  overnight_weekday_price: 429000,
-  overnight_weekend_price: 499000,
+  overnight_weekday_price: 409000,
+  overnight_weekend_price: 509000,
   daily_check_in: "14:00",
   daily_check_out: "11:00",
-  daily_weekday_price: 599000,
+  daily_weekday_price: 609000,
   daily_weekend_price: 699000,
   standard_guest_count: 2,
   extra_guest_fee: 100000,
@@ -43,8 +44,7 @@ const defaultFormData: Partial<PricingPlan> = {
   flexible_rate_percent: 0,
 };
 
-const formatVND = (num?: number) =>
-  new Intl.NumberFormat("vi-VN").format(num ?? 0) + " ₫";
+import { formatVND } from "../../utils/format";
 
 export function PricingPlansPage() {
   const { t } = useTranslation();
@@ -308,7 +308,11 @@ export function PricingPlansPage() {
                         <b>{formatVND(plan.combo_4h_price)}</b>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span className="muted">Combo 8 giờ:</span>
+                        <span className="muted">Combo 6 giờ:</span>
+                        <b>{formatVND(plan.combo_6h_price)}</b>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span className="muted">Combo ban ngày (10h–19h):</span>
                         <b>{formatVND(plan.combo_8h_price)}</b>
                       </div>
                     </div>
@@ -577,12 +581,22 @@ export function PricingPlansPage() {
             />
           </label>
           <label>
-            <span>Combo 8 giờ (₫)</span>
+            <span>Combo 6 giờ (₫)</span>
             <input
               type="number"
               min="0"
               step="1000"
-              value={formData.combo_8h_price ?? 489000}
+              value={formData.combo_6h_price ?? 416000}
+              onChange={(e) => setFormData({ ...formData, combo_6h_price: Number(e.target.value) })}
+            />
+          </label>
+          <label>
+            <span>Combo ban ngày 10h–19h (₫)</span>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              value={formData.combo_8h_price ?? 479000}
               onChange={(e) => setFormData({ ...formData, combo_8h_price: Number(e.target.value) })}
             />
           </label>

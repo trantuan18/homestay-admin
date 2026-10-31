@@ -1,17 +1,19 @@
 import axios from "axios";
-const baseURL = import.meta.env.DEV
-  ? ""
-  : import.meta.env.VITE_API_URL || "https://homstay-server.onrender.com";
+const baseURL =
+  typeof import.meta !== "undefined" && import.meta.env?.DEV
+    ? ""
+    : (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
+      "https://homstay-server.onrender.com";
 export const http = axios.create({
   baseURL,
   timeout: 15000,
   headers: { "Content-Type": "application/json" },
 });
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
+  const token = typeof localStorage !== "undefined" ? localStorage.getItem("access_token") : null;
   const lang =
-    localStorage.getItem("language") ||
-    ((navigator.language || "vi").toLowerCase().startsWith("en") ? "en" : "vi");
+    (typeof localStorage !== "undefined" ? localStorage.getItem("language") : null) ||
+    (typeof navigator !== "undefined" && (navigator.language || "vi").toLowerCase().startsWith("en") ? "en" : "vi");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   config.headers["Accept-Language"] = lang;
   return config;
@@ -37,9 +39,13 @@ const rejectQueue = (err: unknown) => {
 };
 
 const redirectToLogin = () => {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  if (window.location.pathname !== "/login") window.location.assign("/login");
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+  }
+  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+    window.location.assign("/login");
+  }
 };
 
 http.interceptors.response.use(

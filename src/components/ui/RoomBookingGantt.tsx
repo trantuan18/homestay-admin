@@ -4,6 +4,7 @@ import type { DataGroup, DataItem } from "vis-timeline/standalone";
 import { useTranslation } from "react-i18next";
 import { Maximize2, Minimize2, Lock, Unlock } from "lucide-react";
 import type { Booking, Room } from "../../types/api";
+import { formatMinorLabel, formatMajorLabel } from "../../utils/timeline-format";
 import "vis-timeline/styles/vis-timeline-graph2d.min.css";
 
 const localDate = (date: Date) => {
@@ -266,22 +267,8 @@ export function RoomBookingGantt({
       margin: { item: { horizontal: 2, vertical: 8 }, axis: 6 },
       tooltip: { followMouse: true, overflowMethod: "cap" },
       format: {
-        minorLabels: {
-          minute: "HH:mm",
-          hour: "HH:mm",
-          day: "D/M",
-          week: "w",
-          month: "MM/yyyy",
-          year: "yyyy",
-        },
-        majorLabels: {
-          minute: "D/M/yyyy",
-          hour: "ddd, D/M",
-          day: "MM/yyyy",
-          week: "MM/yyyy",
-          month: "yyyy",
-          year: "",
-        },
+        minorLabels: formatMinorLabel,
+        majorLabels: formatMajorLabel,
       },
     });
 
